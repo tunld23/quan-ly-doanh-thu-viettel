@@ -1,0 +1,216 @@
+<template>
+  <div class="relative max-w-full mx-auto font-sans text-gray-700 sm:p-6 lg:p-8">
+    <LoadingOverlay :show="globalLoading" :status-text="loadingStatusText" />
+
+    <!-- Filters Section -->
+    <DashboardFilters
+      v-model:dataType="dataType"
+      v-model:sourceType="sourceType"
+      v-model:activeMetric="activeMetric"
+      v-model:selectedYear="selectedYear"
+      v-model:filterMode="filterMode"
+      v-model:selectedMonth="selectedMonth"
+      v-model:selectedQuarter="selectedQuarter"
+      :available-years="availableYears"
+      :available-months="availableMonths"
+      :available-quarters="availableQuarters"
+      :metrics="metrics"
+      :product-groups="productGroups"
+      @open-compare="openCompare"
+    />
+
+    <!-- Comparison Modal -->
+    <CompareModal
+      v-model:show="showCompareModal"
+      :current-mode="filterMode"
+      :current-value="filterMode === 'quarter' ? selectedQuarter : selectedMonth"
+      @compare="handleCompareRequest"
+    />
+
+    <!-- Main Chart & Ranking Card -->
+    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden mb-6">
+      <div v-if="dashboardData" class="p-6 grid grid-cols-1 lg:grid-cols-3 gap-12 bg-white">
+        
+        <!-- Left: Revenue Chart -->
+        <div class="lg:col-span-2 relative">
+          <h3 class="text-[17px] text-gray-800 mb-4 font-bold flex items-center justify-between">
+            <div class="flex items-center gap-2">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+              </svg>
+              {{ isComparisonMode ? "So sánh 3 năm" : "Biểu đồ Doanh Thu" }}
+            </div>
+
+            <button
+              v-if="isComparisonMode"
+              @click="exitComparison"
+              class="text-[11px] font-black text-blue-500 hover:text-blue-700 bg-blue-50 px-3 py-1.5 rounded-lg border border-blue-100 uppercase tracking-wider transition-all"
+            >
+              Thoát so sánh
+            </button>
+          </h3>
+
+          <div class="relative w-full h-[360px]">
+            <div
+              ref="chartRef"
+              class="w-full h-full transition-opacity duration-300"
+              :class="{ 'opacity-40': isProcessing }"
+            ></div>
+            
+            <!-- Chart Spinner -->
+            <transition name="fade-fast">
+              <div v-if="isProcessing" class="absolute inset-0 bg-white/10 backdrop-blur-[1px] flex items-center justify-center z-10 rounded-xl">
+                <div class="flex flex-col items-center gap-3 bg-white/80 px-6 py-4 rounded-2xl shadow-xl border border-gray-100">
+                  <div class="w-8 h-8 border-3 border-blue-100 border-t-blue-500 rounded-full animate-spin"></div>
+                  <span class="text-[11px] font-black text-blue-600 uppercase tracking-[0.2em]">Đang tính toán...</span>
+                </div>
+              </div>
+            </transition>
+          </div>
+        </div>
+
+        <!-- Right: Staff Ranking -->
+        <StaffRanking
+          :rankings="rankings"
+          :is-comparison-mode="isComparisonMode"
+        />
+      </div>
+
+      <!-- Empty State -->
+      <div v-else class="p-24 flex flex-col items-center justify-center bg-gray-50/30">
+        <div class="w-36 h-36 mb-8 bg-blue-50 rounded-full flex items-center justify-center shadow-inner">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-20 w-20 text-blue-200" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.2" d="M9 17v-2m3 2v-4m3 2v-6m-8 4h8m-1 9l-1 1H7l-1-1V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+          </svg>
+        </div>
+        <h4 class="text-2xl font-black text-gray-800 mb-3">Chưa có dữ liệu thống kê</h4>
+      </div>
+    </div>
+  </div>
+</template>
+
+<script setup>
+import { ref, onMounted, shallowRef, watch, nextTick } from "vue";
+import * as echarts from "echarts";
+
+// Composables & Helpers
+import { useDashboard } from "../../composables/useDashboard";
+import { getBaseChartOption, getUpdateOption, getComparisonOption } from "../../utils/chartConfig";
+
+// Components
+import LoadingOverlay from "../common/LoadingOverlay.vue";
+import DashboardFilters from "./DashboardFilters.vue";
+import StaffRanking from "./StaffRanking.vue";
+import CompareModal from "./CompareModal.vue";
+
+// --- CONFIG ---
+const metrics = [{ id: "withoutVat", name: "Doanh thu (Chưa VAT)" }];
+
+// --- STATE ---
+const {
+  suppressFetch,
+  dashboardData,
+  rankings,
+  isProcessing,
+  globalLoading,
+  loadingStatusText,
+  activeMetric,
+  dataType,
+  sourceType,
+  selectedYear,
+  selectedMonth,
+  selectedQuarter,
+  filterMode,
+  showCompareModal,
+  isComparisonMode,
+  availableYears,
+  availableMonths,
+  availableQuarters,
+  productGroups,
+  openCompare,
+  loadData,
+} = useDashboard();
+
+const chartRef = ref(null);
+const chartInstance = shallowRef(null);
+
+// --- METHODS ---
+
+const initChart = () => {
+  if (chartRef.value && !chartInstance.value) {
+    chartInstance.value = echarts.init(chartRef.value);
+    chartInstance.value.setOption(getBaseChartOption());
+    window.addEventListener("resize", () => chartInstance.value?.resize());
+  }
+};
+
+const handleCompareRequest = async (config) => {
+  if (!selectedYear.value) selectedYear.value = "2025";
+  isComparisonMode.value = true;
+  filterMode.value = config.mode;
+  if (config.mode === "month") selectedMonth.value = config.value;
+  else selectedQuarter.value = config.value;
+  await processData();
+};
+
+const exitComparison = () => {
+  isComparisonMode.value = false;
+  processData();
+};
+
+const processData = async () => {
+  try {
+    const response = await loadData();
+    await nextTick();
+    if (!chartInstance.value && chartRef.value) initChart();
+    if (response) updateUI();
+  } catch (e) {
+    console.error("Process data failed:", e);
+  }
+};
+
+const updateUI = () => {
+  if (!dashboardData.value || !chartInstance.value) return;
+
+  const metricObj = metrics.find((m) => m.id === activeMetric.value);
+  const metricName = metricObj?.name || "Doanh thu";
+
+  if (isComparisonMode.value) {
+    const configData = dashboardData.value.comparisonData[activeMetric.value];
+    if (configData) {
+      chartInstance.value.setOption(getComparisonOption(configData, metricName, activeMetric.value), true);
+    }
+  } else {
+    const chartData = dashboardData.value.chartData[activeMetric.value];
+    if (chartData) {
+      chartInstance.value.setOption(
+        getUpdateOption(chartData.labels, chartData.values, metricName, chartData.prevValues, activeMetric.value),
+        true
+      );
+    }
+  }
+};
+
+// --- LIFECYCLE & WATCHERS ---
+
+onMounted(async () => {
+  initChart();
+  loadingStatusText.value = "Đang tải báo cáo...";
+  await processData();
+  globalLoading.value = false;
+});
+
+watch(
+  [dataType, sourceType, selectedYear, selectedMonth, selectedQuarter, filterMode],
+  () => {
+    if (!suppressFetch.value) processData();
+  }
+);
+
+watch(activeMetric, updateUI);
+</script>
+
+<style scoped>
+.fade-fast-enter-active, .fade-fast-leave-active { transition: opacity 0.3s ease; }
+.fade-fast-enter-from, .fade-fast-leave-to { opacity: 0; }
+</style>

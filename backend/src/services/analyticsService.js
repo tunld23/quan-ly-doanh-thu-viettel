@@ -1,0 +1,210 @@
+/**
+ * analyticsService.js
+ * 
+ * Logic for processing dashboard data from flat records.
+ */
+
+/**
+ * Filter a data array by time-based filters
+ */
+export function filterDashboardData(data, filters) {
+  const { year, month, quarter, mode } = filters;
+  
+  return data.filter(item => {
+    // Year filter (if single year)
+    if (year && !Array.isArray(year) && String(item.nam) !== String(year)) return false;
+    
+    // Month filter
+    if (mode === "month" && month && parseInt(item.thang) !== parseInt(month)) return false;
+    
+    // Quarter filter
+    if (mode === "quarter" && quarter) {
+      const itemQuarter = Math.ceil(parseInt(item.thang) / 3);
+      if (String(itemQuarter) !== String(quarter)) return false;
+    }
+    
+    return true;
+  });
+}
+
+/**
+ * Compute staff rankings with growth indicators
+ */
+export function computeStaffRankings(allData, filters, metricField) {
+  const currentYear = parseInt(filters.year);
+
+  const getRankedList = (targetYear) => {
+    const stats = {};
+    const yearData = targetYear 
+      ? allData.filter(i => i.nam === targetYear)
+      : allData;
+
+    const filtered = filterDashboardData(yearData, { ...filters, year: targetYear || "" });
+
+    filtered.forEach(item => {
+      const staff = item.nhanVien || item.nhan_vien || "Không xác định";
+      stats[staff] = (stats[staff] || 0) + (item[metricField] || 0);
+    });
+
+    return Object.entries(stats)
+      .map(([name, value]) => ({ name, value }))
+      .sort((a, b) => b.value - a.value);
+  };
+
+  // 1. Global Mode (Totals across all years)
+  if (isNaN(currentYear)) {
+    return getRankedList(null).slice(0, 10).map(item => ({
+      ...item,
+      rankChange: "-",
+      previousValue: 0
+    }));
+  }
+
+  // 2. Normal Mode (Specific year vs previous year)
+  const currentRanked = getRankedList(currentYear);
+  const previousRanked = getRankedList(currentYear - 1);
+
+  return currentRanked.slice(0, 10).map((item, index) => {
+    const prevIndex = previousRanked.findIndex(p => p.name === item.name);
+    let rankChange = "-";
+    let previousValue = 0;
+
+    if (prevIndex === -1) {
+      rankChange = "new";
+    } else {
+      previousValue = previousRanked[prevIndex].value;
+      if (prevIndex > index) rankChange = `up:${prevIndex - index}`;
+      else if (prevIndex < index) rankChange = `down:${index - prevIndex}`;
+    }
+
+    return { ...item, rankChange, previousValue };
+  });
+}
+
+/**
+ * Aggregate data for multi-year comparison
+ */
+export function aggregateComparisonData(allData, filters, metricField) {
+  const { year, mode, month, quarter } = filters;
+  
+  // 1. Determine comparison years
+  let years = [];
+  if (year?.includes(',')) {
+    years = year.split(',').map(y => parseInt(y.trim()));
+  } else if (year) {
+    const pivot = parseInt(year);
+    const existingYears = [...new Set(allData.map(d => d.nam))];
+    years = [pivot, pivot - 1, pivot - 2].filter(y => existingYears.includes(y));
+    if (years.length === 0) years = [pivot];
+  } else {
+    return { labels: [], current: [], prev1: [], prev2: [], years: [] };
+  }
+
+  // 2. Prepare time labels
+  const labels = [];
+  const timeUnits = [];
+  
+  if (mode === "month") {
+    const months = month ? [parseInt(month)] : [1,2,3,4,5,6,7,8,9,10,11,12];
+    months.forEach(m => { labels.push(`T${m}`); timeUnits.push({ m }); });
+  } else if (mode === "quarter") {
+    const quarters = quarter ? [parseInt(quarter)] : [1,2,3,4];
+    quarters.forEach(q => { labels.push(`Quý ${q}`); timeUnits.push({ q }); });
+  } else {
+    for (let m = 1; m <= 12; m++) { labels.push(`T${m}`); timeUnits.push({ m }); }
+  }
+
+  const getAggregation = (data, y, m, q) => {
+    return data
+      .filter(i => {
+        if (i.nam !== y) return false;
+        if (m && parseInt(i.thang) !== m) return false;
+        if (q && Math.ceil(parseInt(i.thang) / 3) !== q) return false;
+        return true;
+      })
+      .reduce((sum, i) => sum + (i[metricField] || 0), 0);
+  };
+
+  const current = [];
+  const prev1 = [];
+  const prev2 = [];
+
+  timeUnits.forEach(unit => {
+    current.push(getAggregation(allData, years[0], unit.m, unit.q));
+    if (years[1]) prev1.push(getAggregation(allData, years[1], unit.m, unit.q));
+    if (years[2]) prev2.push(getAggregation(allData, years[2], unit.m, unit.q));
+  });
+
+  return { labels, current, prev1, prev2, years };
+}
+
+/**
+ * Aggregate chart data for single year view + previous year comparison line
+ */
+export function aggregateChartData(filteredData, allData, filters, metricField) {
+  const { year, month, quarter, mode } = filters;
+  const labels = [];
+  const values = [];
+  const prevValues = [];
+
+  const prevYear = year ? parseInt(year) - 1 : null;
+
+  if (mode === "all" || !mode) {
+    if (!year) {
+      // Annual Overview
+      const allYears = [...new Set(allData.map(i => i.nam))].sort((a,b) => a - b);
+      allYears.forEach((y, idx) => {
+        const label = `Năm ${y}`;
+        labels.push(label);
+        const val = allData.filter(i => i.nam === y).reduce((s, i) => s + (i[metricField] || 0), 0);
+        values.push(val);
+        
+        let pVal = 0;
+        if (idx > 0) {
+          const prevY = allYears[idx-1];
+          pVal = allData.filter(i => i.nam === prevY).reduce((s, i) => s + (i[metricField] || 0), 0);
+        }
+        prevValues.push(pVal);
+      });
+    } else {
+      // Monthly Breakdown
+      for (let m = 1; m <= 12; m++) {
+        labels.push(`T${m}/${year}`);
+        values.push(filteredData.filter(i => parseInt(i.thang) === m).reduce((s, i) => s + (i[metricField] || 0), 0));
+        prevValues.push(allData.filter(i => i.nam === prevYear && parseInt(i.thang) === m).reduce((s, i) => s + (i[metricField] || 0), 0));
+      }
+    }
+  } else if (mode === "quarter") {
+    const targetQs = quarter ? [parseInt(quarter)] : [1,2,3,4];
+    targetQs.forEach((q, idx) => {
+      const label = `Quý ${q}${year ? "/" + year : ""}`;
+      labels.push(label);
+      values.push(filteredData.filter(i => Math.ceil(parseInt(i.thang)/3) === q).reduce((s,i) => s + (i[metricField] || 0), 0));
+      
+      let pVal = 0;
+      if (prevYear) {
+        pVal = allData.filter(i => i.nam === prevYear && Math.ceil(parseInt(i.thang)/3) === q).reduce((s,i) => s + (i[metricField] || 0), 0);
+      } else if (!year && idx > 0) {
+        pVal = values[idx-1];
+      }
+      prevValues.push(pVal);
+    });
+  } else if (mode === "month") {
+    const targetMs = month ? [parseInt(month)] : [1,2,3,4,5,6,7,8,9,10,11,12];
+    targetMs.forEach((m, idx) => {
+      const label = `T${m}${year ? "/" + year : ""}`;
+      labels.push(label);
+      values.push(filteredData.filter(i => parseInt(i.thang) === m).reduce((s,i) => s + (i[metricField] || 0), 0));
+      
+      let pVal = 0;
+      if (prevYear) {
+        pVal = allData.filter(i => i.nam === prevYear && parseInt(i.thang) === m).reduce((s,i) => s + (i[metricField] || 0), 0);
+      } else if (!year && idx > 0) {
+        pVal = values[idx-1];
+      }
+      prevValues.push(pVal);
+    });
+  }
+
+  return { labels, values, prevValues };
+}
