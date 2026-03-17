@@ -18,6 +18,11 @@ import {
   createAdjustment, 
   deleteAdjustment 
 } from "../controllers/adjustmentController.js";
+import {
+  getTargets,
+  createTarget,
+  deleteTarget
+} from "../controllers/targetController.js";
 
 const router = express.Router();
 const upload = multer({ storage: multer.memoryStorage() });
@@ -34,6 +39,11 @@ router.get("/staff", getStaffNames);
 router.get("/adjustments", getAdjustments);
 router.post("/adjustments", createAdjustment);
 router.delete("/adjustments/:id", deleteAdjustment);
+
+// Targets
+router.get("/targets", getTargets);
+router.post("/targets", createTarget);
+router.delete("/targets", deleteTarget);
 
 // New Product Import Route
 router.post("/products/import", upload.single("file"), importProducts);

@@ -31,6 +31,7 @@ export function useDashboard() {
   const selectedQuarter = ref("");
   const filterMode = ref("all");
   const isComparisonMode = ref(false);
+  const viewMode = ref("actual"); // 'actual' = Current view, 'target' = Achievement Rate
 
   // --- COMPUTED ---
   const availableYears = computed(() => availableYearsFromDb.value);
@@ -79,10 +80,6 @@ export function useDashboard() {
    */
   const openCompare = () => {
     suppressFetch.value = true;
-    selectedYear.value = "2025";
-    filterMode.value = "all";
-    selectedMonth.value = "";
-    selectedQuarter.value = "";
     showCompareModal.value = true;
     nextTick(() => suppressFetch.value = false);
   };
@@ -98,7 +95,7 @@ export function useDashboard() {
         .map(y => parseInt(y))
         .sort((a, b) => b - a);
         
-      yearParam = sortedYears.join(",");
+      yearParam = sortedYears.sort((a, b) => a - b).join(",");
     }
 
     return {
@@ -108,6 +105,7 @@ export function useDashboard() {
       month: filterMode.value === "month" ? selectedMonth.value : "",
       quarter: filterMode.value === "quarter" ? selectedQuarter.value : "",
       mode: filterMode.value,
+      viewMode: viewMode.value,
     };
   };
 
@@ -115,10 +113,7 @@ export function useDashboard() {
    * Main data loading function
    */
   const loadData = async () => {
-    // Safety check for comparison mode
-    if (isComparisonMode.value && !selectedYear.value) {
-      isComparisonMode.value = false;
-    }
+    // Simplified: stay in comparison mode if requested, regardless of selectedYear
 
     isProcessing.value = true;
     try {
@@ -169,6 +164,7 @@ export function useDashboard() {
     selectedQuarter,
     filterMode,
     isComparisonMode,
+    viewMode,
     
     // Computed
     availableYears,

@@ -81,6 +81,158 @@ export const getDashboardData = async (req, res) => {
     // Populate dynamic filter lists (Groups, Years, Months, Quarters)
     await populateFilterMetadata(db, response, { type, source, year, month, quarter, mode });
 
+    // Target Achievement Calculation
+    const { viewMode: reqViewMode } = req.query;
+    if (reqViewMode === 'target') {
+        const rawYear = req.query.year;
+        let years = [];
+        
+        if (rawYear && rawYear !== "all") {
+            years = String(rawYear).split(',').map(y => parseInt(y.trim())).filter(y => !isNaN(y));
+        } else {
+            // Default to all years that have targets
+            const allTargetYearsRes = await db.request().query("SELECT DISTINCT tr_year FROM targets ORDER BY tr_year DESC");
+            years = allTargetYearsRes.recordset.map(r => r.tr_year);
+        }
+
+        if (years.length === 0) {
+            years = [new Date().getFullYear()];
+        }
+
+        const result = { labels: [], years: years, yearsData: {} };
+        
+        // 1. Get ALL unique product groups for these years from BOTH targets and actuals
+        const groupReq = db.request();
+        const yearsStr = years.join(",");
+        let groupQuery = `
+            SELECT DISTINCT TRIM(product_group) as pg 
+            FROM summary_report 
+            WHERE tr_year IN (${yearsStr})
+              AND (total_amount > 0 OR service_count > 0)
+              AND product_group IS NOT NULL AND product_group <> ''
+        `;
+
+        if (source && source !== "all") {
+            const groupReqSource = db.request();
+            groupReqSource.input("source", source);
+            groupQuery = `
+                SELECT DISTINCT TRIM(product_group) as pg 
+                FROM summary_report 
+                WHERE tr_year IN (${yearsStr}) 
+                  AND LOWER(TRIM(source_type)) = LOWER(TRIM(@source))
+                  AND (total_amount > 0 OR service_count > 0)
+                  AND product_group IS NOT NULL AND product_group <> ''
+            `;
+            groupReq.input("source", source);
+        }
+        
+        if (type && type !== "all") {
+            groupQuery = `SELECT TRIM(@type) as pg`;
+            groupReq.input("type", type);
+        }
+
+        const groupRes = await groupReq.query(groupQuery);
+        result.labels = groupRes.recordset.map(r => r.pg).sort();
+
+        // 2. Fetch data for each year
+        for (const targetYear of years) {
+            const targetReq = db.request();
+            const actualReq = db.request();
+            targetReq.input("year", targetYear);
+            actualReq.input("year", targetYear);
+            
+            let targetQuery = `SELECT TRIM(product_group) as product_group, TRIM(type) as type, SUM(CAST(amount AS FLOAT)) as target_amount FROM targets WHERE tr_year = @year`;
+            let actualQuery = `SELECT TRIM(product_group) as product_group, SUM(CAST(total_amount AS FLOAT)) as actual_revenue, SUM(CAST(service_count AS FLOAT)) as actual_subs FROM summary_report WHERE tr_year = @year`;
+
+            if (source && source !== "all") {
+                targetQuery += " AND LOWER(TRIM(source_type)) = LOWER(TRIM(@source))";
+                actualQuery += " AND LOWER(TRIM(source_type)) = LOWER(TRIM(@source))";
+                targetReq.input("source", source);
+                actualReq.input("source", source);
+            }
+
+            if (type && type !== "all") {
+                targetQuery += " AND product_group = @type";
+                actualQuery += " AND product_group = @type";
+                targetReq.input("type", type);
+                actualReq.input("type", type);
+            }
+            
+            if (mode === "month" && month) {
+                const mStr = month.toString().padStart(2, '0');
+                targetQuery += " AND tr_month = @month";
+                actualQuery += " AND tr_month = @month";
+                targetReq.input("month", mStr);
+                actualReq.input("month", mStr);
+            } else if (mode === "quarter" && quarter) {
+                const q = parseInt(quarter);
+                const m1 = ((q - 1) * 3 + 1).toString().padStart(2, '0');
+                const m2 = ((q - 1) * 3 + 2).toString().padStart(2, '0');
+                const m3 = ((q - 1) * 3 + 3).toString().padStart(2, '0');
+                targetQuery += " AND tr_month IN (@m1, @m2, @m3)";
+                actualQuery += " AND tr_month IN (@m1, @m2, @m3)";
+                [targetReq, actualReq].forEach(r => {
+                    r.input("m1", m1); r.input("m2", m2); r.input("m3", m3);
+                });
+            }
+
+            targetQuery += " GROUP BY TRIM(product_group), TRIM(type)";
+            actualQuery += " GROUP BY TRIM(product_group)";
+
+            const [targetRes, actualRes] = await Promise.all([
+                targetReq.query(targetQuery),
+                actualReq.query(actualQuery)
+            ]);
+
+            const targetRows = targetRes.recordset;
+            const actualRows = actualRes.recordset;
+
+            result.yearsData[targetYear] = { 
+                revenueRates: [], 
+                subRates: [],
+                revenueDetails: [], // { actual, target }
+                subDetails: []      // { actual, target }
+            };
+
+            result.labels.forEach(group => {
+                const groupLower = group.toLowerCase().trim();
+                
+                // Find actuals for this group (case-insensitive)
+                const actual = actualRows.find(a => a.product_group.toLowerCase().trim() === groupLower) || { actual_revenue: 0, actual_subs: 0 };
+                
+                // Find targets for this group and type (case-insensitive and trimmed)
+                const revTarget = targetRows.find(t => 
+                    t.product_group.toLowerCase().trim() === groupLower && 
+                    (t.type.toLowerCase().trim() === 'doanh thu' || t.type.toLowerCase().trim().includes('doanh thu'))
+                )?.target_amount || 0;
+                
+                const subTarget = targetRows.find(t => 
+                    t.product_group.toLowerCase().trim() === groupLower && 
+                    (t.type.toLowerCase().trim() === 'thuê bao' || t.type.toLowerCase().trim().includes('thuê bao'))
+                )?.target_amount || 0;
+
+                const revRate = Number(revTarget) > 0 ? (Number(actual.actual_revenue) / Number(revTarget)) * 100 : 0;
+                const subRate = Number(subTarget) > 0 ? (Number(actual.actual_subs) / Number(subTarget)) * 100 : 0;
+
+                // Return 2 decimal places for better precision on small achievements
+                result.yearsData[targetYear].revenueRates.push(parseFloat(Number(revRate).toFixed(2)));
+                result.yearsData[targetYear].subRates.push(parseFloat(Number(subRate).toFixed(2)));
+
+                // Add raw details for "extreme detail" tooltips
+                result.yearsData[targetYear].revenueDetails.push({
+                    actual: Number(actual.actual_revenue || 0),
+                    target: Number(revTarget || 0)
+                });
+                result.yearsData[targetYear].subDetails.push({
+                    actual: Number(actual.actual_subs || 0),
+                    target: Number(subTarget || 0)
+                });
+            });
+        }
+
+        response.targetAchievement = result;
+    }
+
     res.json(response);
   } catch (err) {
     console.error("Dashboard error:", err);
@@ -197,16 +349,18 @@ async function populateFilterMetadata(db, response, { type, source, year, month,
     groupReq.input("quarter", parseInt(quarter));
   }
 
+  const whereStr = whereConditions.join(" AND ");
   const groupQuery = `
-    SELECT product_group 
+    SELECT DISTINCT TRIM(product_group) as product_group 
     FROM summary_report 
-    WHERE ${whereConditions.join(" AND ")}
-    GROUP BY product_group 
-    HAVING SUM(ISNULL(total_amount, 0)) > 0
+    WHERE ${whereStr} 
+      AND (total_amount > 0 OR service_count > 0)
+      AND product_group IS NOT NULL AND product_group <> ''
   `;
   
   const groupRes = await groupReq.query(groupQuery);
-  response.productGroups = ["all", ...groupRes.recordset.map(r => r.product_group)];
+  const otherGroups = [...new Set(groupRes.recordset.map(r => r.product_group))].sort();
+  response.productGroups = ["all", ...otherGroups];
 
   // 2. Available Years
   let yearQuery = "SELECT DISTINCT tr_year FROM summary_report WHERE 1=1";

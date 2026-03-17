@@ -134,6 +134,43 @@ async function initDb(db) {
         ALTER TABLE summary_report ADD source_type NVARCHAR(50) NULL;
       END
     END
+
+    IF OBJECT_ID('targets', 'U') IS NULL
+    BEGIN
+      CREATE TABLE targets (
+        tr_year INT NOT NULL,
+        tr_month NVARCHAR(2) NOT NULL,
+        source_type NVARCHAR(50) NOT NULL,
+        product_group NVARCHAR(255) NOT NULL,
+        type NVARCHAR(50) NOT NULL,
+        amount FLOAT NOT NULL,
+        created_at DATETIME DEFAULT GETDATE(),
+        PRIMARY KEY (tr_year, tr_month, source_type, product_group, type)
+      );
+    END
+    ELSE
+    BEGIN
+      -- 1. Standardize column names if any leftovers (optional now but good for safety)
+      IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('targets') AND name = 'type')
+        AND EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('targets') AND name = 'target_type')
+      BEGIN
+        EXEC sp_rename 'targets.target_type', 'type', 'COLUMN';
+      END
+      
+      -- 2. Ensure all required columns exist
+      IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('targets') AND name = 'source_type')
+        ALTER TABLE targets ADD source_type NVARCHAR(50) NOT NULL DEFAULT 'dealer';
+        
+      IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('targets') AND name = 'created_at')
+        ALTER TABLE targets ADD created_at DATETIME DEFAULT GETDATE();
+
+      -- 3. Final cleanup of any redundant columns
+      IF EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('targets') AND name = 'target_type')
+        ALTER TABLE targets DROP COLUMN target_type;
+        
+      IF EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('targets') AND name = 'id')
+        ALTER TABLE targets DROP COLUMN id;
+    END
   `;
   try {
     await db.request().query(schema);

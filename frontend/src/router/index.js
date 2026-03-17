@@ -3,6 +3,7 @@ import Dashboard from "../components/dashboard/Dashboard.vue";
 import ProductImport from "../views/ProductImport.vue";
 import SalesImport from "../views/SalesImport.vue";
 import SalesAdjustment from "../views/SalesAdjustment.vue";
+import TargetConfig from "../views/TargetConfig.vue";
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -26,6 +27,11 @@ const router = createRouter({
       path: "/adjustments",
       name: "adjustments",
       component: SalesAdjustment,
+    },
+    {
+      path: "/targets",
+      name: "targets",
+      component: TargetConfig,
     },
   ],
 });

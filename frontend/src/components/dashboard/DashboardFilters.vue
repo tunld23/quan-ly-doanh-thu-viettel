@@ -1,28 +1,56 @@
 <template>
   <div class="space-y-6">
     <!-- Row 1: Data Source Selection (Dealer / AM) -->
-    <div class="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 flex flex-col md:flex-row md:items-center justify-center gap-6">
-      <div class="flex flex-col md:flex-row md:items-center justify-start gap-6 w-full">
-        <div class="flex flex-col items-start">
-          <h2 class="text-[13px] font-bold text-gray-400 uppercase tracking-wider mb-2.5 px-1">
-            Kênh nạp dữ liệu
-          </h2>
-          <div class="flex p-1 bg-gray-100/80 rounded-xl border border-gray-200/50 w-fit">
-            <button
-              v-for="source in sourceOptions"
-              :key="source.id"
-              @click="$emit('update:sourceType', source.id)"
-              class="flex items-center gap-2.5 px-5 py-2.5 rounded-lg text-sm font-bold transition-all duration-300"
-              :class="sourceType === source.id ? 'bg-white text-blue-600 shadow-md ring-1 ring-black/5 scale-[1.02]' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-200/40'"
-            >
-              <div class="flex items-center justify-center w-5 h-5 flex-shrink-0">
-                <svg xmlns="http://www.w3.org/2000/svg" class="w-[18px] h-[18px]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" :d="source.icon" />
-                </svg>
-              </div>
-              <span class="leading-none">{{ source.name }}</span>
-            </button>
-          </div>
+    <div class="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 flex items-center justify-between gap-6">
+      <!-- Left: Source Toggle -->
+      <div class="flex flex-col items-start">
+        <h2 class="text-[13px] font-bold text-gray-400 uppercase tracking-wider mb-2.5 px-1">
+          Kênh nạp dữ liệu
+        </h2>
+        <div class="flex p-1 bg-gray-100/80 rounded-xl border border-gray-200/50 w-fit">
+          <button
+            v-for="source in sourceOptions"
+            :key="source.id"
+            @click="$emit('update:sourceType', source.id)"
+            class="flex items-center gap-2.5 px-5 py-2.5 rounded-lg text-sm font-bold transition-all duration-300"
+            :class="sourceType === source.id ? 'bg-white text-blue-600 shadow-md ring-1 ring-black/5 scale-[1.02]' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-200/40'"
+          >
+            <div class="flex items-center justify-center w-[18px] h-[18px] flex-shrink-0">
+              <svg xmlns="http://www.w3.org/2000/svg" class="w-full h-full" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" :d="source.icon" />
+              </svg>
+            </div>
+            <span class="leading-none ml-1">{{ source.name }}</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Right: View Mode Toggle -->
+      <div class="flex flex-col items-end">
+        <h2 class="text-[13px] font-bold text-gray-400 uppercase tracking-wider mb-2.5 px-1">
+          Chế độ xem
+        </h2>
+        <div class="flex p-1 bg-gray-100/80 rounded-xl border border-gray-200/50 w-fit">
+          <button
+            @click="$emit('update:viewMode', 'actual')"
+            class="flex items-center gap-2.5 px-5 py-2.5 rounded-lg text-sm font-bold transition-all duration-300"
+            :class="viewMode === 'actual' ? 'bg-white text-blue-600 shadow-md ring-1 ring-black/5 scale-[1.02]' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-200/40'"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 mr-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+            </svg>
+            Doanh Thu
+          </button>
+          <button
+            @click="$emit('update:viewMode', 'target')"
+            class="flex items-center gap-2.5 px-5 py-2.5 rounded-lg text-sm font-bold transition-all duration-300"
+            :class="viewMode === 'target' ? 'bg-white text-emerald-600 shadow-md ring-1 ring-black/5 scale-[1.02]' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-200/40'"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 mr-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+            </svg>
+            Tỷ lệ hoàn thành
+          </button>
         </div>
       </div>
     </div>
@@ -155,6 +183,7 @@ const props = defineProps({
   filterMode: String,
   selectedMonth: String,
   selectedQuarter: String,
+  viewMode: String,
   availableYears: Array,
   availableMonths: Array,
   availableQuarters: Array,
@@ -168,6 +197,7 @@ const emit = defineEmits([
   "update:activeMetric",
   "update:selectedYear",
   "update:filterMode",
+  "update:viewMode",
   "update:selectedMonth",
   "update:selectedQuarter",
   "open-compare",

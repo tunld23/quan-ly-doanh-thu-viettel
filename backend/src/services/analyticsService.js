@@ -89,12 +89,14 @@ export function aggregateComparisonData(allData, filters, metricField) {
   
   // 1. Determine comparison years
   let years = [];
-  if (year?.includes(',')) {
-    years = year.split(',').map(y => parseInt(y.trim())).sort((a, b) => b - a);
-  } else if (year) {
-    const pivot = parseInt(year);
-    years = [...new Set(allData.map(d => d.nam))].sort((a, b) => b - a);
+  if (year && String(year).includes(',')) {
+    years = String(year).split(',').map(y => parseInt(y.trim())).sort((a, b) => b - a);
   } else {
+    // If year is empty or a single year, take all distinct years present in the fetched data
+    years = [...new Set(allData.map(d => d.nam))].sort((a, b) => b - a);
+  }
+
+  if (years.length === 0) {
     return { labels: [], years: [], yearData: {} };
   }
 
