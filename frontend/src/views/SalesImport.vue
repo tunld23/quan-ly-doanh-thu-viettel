@@ -216,43 +216,97 @@
         <!-- 2.5 Manual Date Selection for specific AM types -->
         <div
           v-if="requiresManualDate"
-          class="mb-8 p-4 bg-orange-50 rounded-xl border border-orange-200"
+          class="mb-8 p-6 bg-indigo-50/50 rounded-2xl border border-indigo-100 flex items-center gap-6 animate-in slide-in-from-top-2 duration-300"
         >
-          <label
-            class="block text-sm font-bold text-orange-800 mb-3 uppercase tracking-wider"
+          <div
+            class="flex-shrink-0 bg-indigo-600 p-3 rounded-xl shadow-lg shadow-indigo-200"
           >
-            CHỌN THỜI GIAN
-          </label>
-          <div class="grid grid-cols-2 gap-4">
-            <div>
-              <label class="block text-xs font-bold text-gray-500 mb-1"
+            <svg
+              class="w-6 h-6 text-white"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2.5"
+                d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+              />
+            </svg>
+          </div>
+
+          <div class="flex-1 grid grid-cols-2 gap-6">
+            <div class="space-y-1.5">
+              <label
+                class="block text-[11px] font-black text-indigo-900/60 uppercase tracking-[0.1em] ml-1"
                 >Tháng</label
               >
-              <select
-                v-model="manualMonth"
-                class="w-full p-2 border rounded-lg bg-white"
-              >
-                <option
-                  v-for="m in 12"
-                  :key="m"
-                  :value="String(m).padStart(2, '0')"
+              <div class="relative">
+                <select
+                  v-model="manualMonth"
+                  class="w-full pl-4 pr-10 py-3 rounded-xl border-2 border-white bg-white shadow-sm focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/5 transition-all outline-none font-bold text-gray-800 appearance-none cursor-pointer"
                 >
-                  Tháng {{ m }}
-                </option>
-              </select>
+                  <option
+                    v-for="m in 12"
+                    :key="m"
+                    :value="String(m).padStart(2, '0')"
+                  >
+                    Tháng {{ m }}
+                  </option>
+                </select>
+                <div
+                  class="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none text-indigo-400"
+                >
+                  <svg
+                    class="w-5 h-5"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="2"
+                      d="M19 9l-7 7-7-7"
+                    />
+                  </svg>
+                </div>
+              </div>
             </div>
-            <div>
-              <label class="block text-xs font-bold text-gray-500 mb-1"
+
+            <div class="space-y-1.5">
+              <label
+                class="block text-[11px] font-black text-indigo-900/60 uppercase tracking-[0.1em] ml-1"
                 >Năm</label
               >
-              <select
-                v-model="manualYear"
-                class="w-full p-2 border rounded-lg bg-white"
-              >
-                <option v-for="y in availableYears" :key="y" :value="y">
-                  {{ y }}
-                </option>
-              </select>
+              <div class="relative">
+                <select
+                  v-model="manualYear"
+                  class="w-full pl-4 pr-10 py-3 rounded-xl border-2 border-white bg-white shadow-sm focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/5 transition-all outline-none font-bold text-gray-800 appearance-none cursor-pointer"
+                >
+                  <option v-for="y in availableYears" :key="y" :value="y">
+                    Năm {{ y }}
+                  </option>
+                </select>
+                <div
+                  class="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none text-indigo-400"
+                >
+                  <svg
+                    class="w-5 h-5"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="2"
+                      d="M19 9l-7 7-7-7"
+                    />
+                  </svg>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -276,7 +330,12 @@
             3. Tải lên file dữ liệu
           </label>
           <div
-            class="relative border-2 border-dashed border-gray-300 rounded-xl p-10 text-center hover:border-blue-400 transition-colors group cursor-pointer"
+            class="relative border-2 border-dashed rounded-2xl text-center transition-all group cursor-pointer overflow-hidden"
+            :class="[
+              file
+                ? 'p-0 border-blue-400 bg-blue-50/30'
+                : 'p-10 border-gray-300 hover:border-blue-400',
+            ]"
             @dragover.prevent
             @drop.prevent="handleDrop"
             @click="$refs.fileInput.click()"
@@ -313,35 +372,47 @@
                 </p>
               </div>
             </div>
-            <div v-else class="flex items-center justify-center space-x-4">
-              <div class="bg-blue-100 p-3 rounded-full">
-                <svg
-                  class="w-8 h-8 text-blue-600"
-                  fill="currentColor"
-                  viewBox="0 0 20 20"
+            <div
+              v-else
+              class="flex items-center justify-between p-8 w-full group/file min-h-[140px]"
+            >
+              <div class="flex items-center space-x-6 min-w-0 flex-1 px-4">
+                <div
+                  class="bg-blue-600 p-4 rounded-2xl shadow-blue-200 shadow-2xl flex-shrink-0 transform group-hover/file:scale-110 transition-transform"
                 >
-                  <path
-                    fill-rule="evenodd"
-                    d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 6a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zm1 3a1 1 0 100 2h6a1 1 0 100-2H7z"
-                    clip-rule="evenodd"
-                  />
-                </svg>
-              </div>
-              <div class="text-left">
-                <p class="text-lg font-semibold text-gray-800">
-                  {{ file.name }}
-                </p>
-                <p class="text-sm text-gray-500">
-                  {{ (file.size / 1024).toFixed(2) }} KB
-                </p>
+                  <svg
+                    class="w-10 h-10 text-white"
+                    fill="currentColor"
+                    viewBox="0 0 20 20"
+                  >
+                    <path
+                      fill-rule="evenodd"
+                      d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 6a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zm1 3a1 1 0 100 2h6a1 1 0 100-2H7z"
+                      clip-rule="evenodd"
+                    />
+                  </svg>
+                </div>
+                <div class="text-left min-w-0 flex-1">
+                  <p
+                    class="text-xl font-black text-gray-800 truncate mb-1"
+                    :title="file.name"
+                  >
+                    {{ file.name }}
+                  </p>
+                  <p
+                    class="text-sm text-blue-600 font-bold bg-blue-100/50 inline-block px-3 py-1 rounded-full tracking-wide"
+                  >
+                    Tiền tố: {{ (file.size / 1024).toFixed(2) }} KB
+                  </p>
+                </div>
               </div>
               <button
                 @click.stop="file = null"
-                class="p-2 hover:bg-red-50 rounded-full text-red-500 transition-colors"
+                class="mr-6 p-4 hover:bg-red-50 rounded-2xl text-red-400 hover:text-red-500 transition-all border border-transparent hover:border-red-100 group-hover/file:rotate-90"
                 title="Xóa file"
               >
                 <svg
-                  class="w-6 h-6"
+                  class="w-8 h-8"
                   fill="none"
                   stroke="currentColor"
                   viewBox="0 0 24 24"
@@ -349,8 +420,8 @@
                   <path
                     stroke-linecap="round"
                     stroke-linejoin="round"
-                    stroke-width="2"
-                    d="6 18L18 6M6 6l18 18"
+                    stroke-width="2.5"
+                    d="M6 18L18 6M6 6l18 18"
                   />
                 </svg>
               </button>
@@ -434,8 +505,11 @@ const fetchYears = async () => {
   try {
     const response = await axios.get(`${API_BASE}/product/years`);
     availableYears.value = response.data;
-    if (availableYears.value.length > 0 && !availableYears.value.includes(manualYear.value)) {
-       manualYear.value = availableYears.value[0];
+    if (
+      availableYears.value.length > 0 &&
+      !availableYears.value.includes(manualYear.value)
+    ) {
+      manualYear.value = availableYears.value[0];
     }
   } catch (err) {
     console.error("Lỗi lấy danh sách năm:", err);
@@ -505,7 +579,8 @@ const handleImport = async () => {
     toast.success(response.data.message);
     file.value = null; // Reset file after success
   } catch (err) {
-    const errorMsg = err.response?.data?.error || "Có lỗi xảy ra khi import detail";
+    const errorMsg =
+      err.response?.data?.error || "Có lỗi xảy ra khi import detail";
     toast.error(errorMsg);
     console.error(err);
   } finally {

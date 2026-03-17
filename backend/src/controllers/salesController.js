@@ -19,12 +19,6 @@ export const importSales = async (req, res) => {
     const buffer = req.file.buffer;
     const sData = await processSalesImportExcel(buffer, type);
 
-    if (sData.length === 0) {
-      return res
-        .status(400)
-        .json({ error: "No valid sales data found in file for " + type });
-    }
-
     // Auto-detect months and years from data if not provided
     const detectedMonths = months
       ? months.split(",").map((m) => m.trim().padStart(2, "0"))
@@ -153,8 +147,8 @@ export const importSales = async (req, res) => {
     }
   } catch (err) {
     console.error("Import Sales Error:", err);
-    res.status(500).json({
-      error: "Sales import failed",
+    res.status(err.isValidationError ? 400 : 500).json({
+      error: err.isValidationError ? err.message : "Sales import failed",
       details: err.message,
     });
   }

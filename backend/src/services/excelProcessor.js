@@ -109,7 +109,7 @@ const EXCEL_CONFIGS = {
         // Chỉ lấy những dòng nào mà cột C (index 2) là HNI
         const tinh = String(row[2] || "").trim().toUpperCase();
         if (tinh !== "HNI") {
-          return { rawDate: null, rawUser: null, rawMa: null, rawMat: null };
+          return { rawDate: null, rawUser: "invalid_tinh", rawMa: null, rawMat: null };
         }
         return {
           rawDate: row[15], // Cột P
@@ -131,7 +131,7 @@ const EXCEL_CONFIGS = {
         // Chỉ lấy dòng có cột AL (index 37) là HNI
         const tinh = String(row[37] || "").trim().toUpperCase();
         if (tinh !== "HNI") {
-          return { rawDate: null, rawUser: null, rawMa: null, rawMat: null };
+          return { rawDate: null, rawUser: "invalid_tinh", rawMa: null, rawMat: null };
         }
         const split = splitMaMat(row[24]); // Cột Y (Mã-Mặt hàng)
         return {
@@ -151,12 +151,16 @@ const EXCEL_CONFIGS = {
         "product line",
       ],
       parse: (row, groupType) => {
-        const marker = String(row[43] || "").trim().toLowerCase(); // Cột AR (Chuyển về chữ thường)
+        const marker = String(row[43] || "").trim().toLowerCase(); // Cột AR
         
         let isValid = false;
-        if (groupType === "vContract" && marker === "hợp đồng điện tử") isValid = true;
-        if (groupType === "Tendoo" && marker === "pmqlbh_tendoo") isValid = true;
-        if (groupType === "vTracking" && marker === "v-tracking") isValid = true;
+        if (marker === "") {
+          isValid = true; // Cho phép nhập nếu cột AR để trống
+        } else {
+          if (groupType === "vContract" && marker === "hợp đồng điện tử") isValid = true;
+          if (groupType === "Tendoo" && marker === "pmqlbh_tendoo") isValid = true;
+          if (groupType === "vTracking" && marker === "v-tracking") isValid = true;
+        }
 
         if (!isValid) return { rawDate: null, rawUser: "skip", rawMa: null, rawMat: null };
 
@@ -212,18 +216,39 @@ export async function processSalesImportExcel(buffer, groupType) {
   validateHeader(rows, config.headerRow, config.requiredMarkers, groupType);
 
   const results = [];
+  const skipReasons = {
+    wrongMarker: 0,
+    noMaHang: 0,
+    invalidTinh: 0
+  };
+
   for (let i = config.headerRow + 1; i < rows.length; i++) {
     const row = rows[i];
     if (!row || row.length === 0) continue;
+    
+    // Bỏ qua dòng trắng (không có dữ liệu ở các cột chính)
+    const isRowEmpty = !row.some(cell => cell !== "" && cell !== null && cell !== undefined);
+    if (isRowEmpty) continue;
 
     const parsed = config.parse(row, groupType);
-    if (parsed.rawUser === "skip") continue;
+    if (parsed.rawUser === "skip") {
+      skipReasons.wrongMarker++;
+      continue;
+    }
+    
+    if (parsed.rawUser === "invalid_tinh") {
+      skipReasons.invalidTinh++;
+      continue;
+    }
 
     const { rawDate, rawUser, rawMa, rawMat, amount } = parsed;
     const { thang, nam } = parseExcelDate(rawDate);
 
-    // If no date in file, we'll rely on controller to fill from UI
-    if (!rawMa) continue;
+    // Nếu không có mã hàng thì mới tính là lỗi thiếu mã
+    if (!rawMa || rawMa === "") {
+      skipReasons.noMaHang++;
+      continue;
+    }
 
     results.push({
       ma_hang: rawMa,
@@ -235,6 +260,21 @@ export async function processSalesImportExcel(buffer, groupType) {
       amount: amount,
     });
   }
+
+  if (results.length === 0) {
+    let message = `File không có dữ liệu ${groupType} hợp lệ.`;
+    
+    if (skipReasons.wrongMarker > 0 && skipReasons.invalidTinh === 0 && skipReasons.noMaHang === 0) {
+        message = `File không có dữ liệu cho nhóm ${groupType} (Cột AR không khớp).`;
+    } else if (skipReasons.invalidTinh > 0) {
+        message = `Dữ liệu trong file không thuộc mã tỉnh HNI (nhóm ${groupType}).`;
+    }
+    
+    const error = new Error(message);
+    error.isValidationError = true;
+    throw error;
+  }
+
   return results;
 }
 

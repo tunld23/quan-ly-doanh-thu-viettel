@@ -79,7 +79,7 @@ export const getDashboardData = async (req, res) => {
     });
 
     // Populate dynamic filter lists (Groups, Years, Months, Quarters)
-    await populateFilterMetadata(db, response, { type, source, year });
+    await populateFilterMetadata(db, response, { type, source, year, month, quarter, mode });
 
     res.json(response);
   } catch (err) {
@@ -167,14 +167,44 @@ async function fetchRawDashboardData(db, { type, year, source }) {
   return recordset;
 }
 
-async function populateFilterMetadata(db, response, { type, source, year }) {
-  // 1. Available Product Groups
-  let groupQuery = "SELECT DISTINCT product_group FROM summary_report WHERE product_group IS NOT NULL";
+async function populateFilterMetadata(db, response, { type, source, year, month, quarter, mode }) {
+  // 1. Available Product Groups (Filtered by ALL current filters and MUST have revenue > 0)
   const groupReq = db.request();
+  let whereConditions = ["product_group IS NOT NULL"];
+  
   if (source !== "all") {
-    groupQuery += " AND source_type = @source";
+    whereConditions.push("source_type = @source");
     groupReq.input("source", source);
   }
+  
+  if (year) {
+    const years = year.split(",").map(y => parseInt(y.trim()));
+    if (years.length > 1) {
+      whereConditions.push(`tr_year IN (${years.map((_, i) => `@gy${i}`).join(",")})`);
+      years.forEach((y, i) => groupReq.input(`gy${i}`, y));
+    } else {
+      whereConditions.push("tr_year = @year");
+      groupReq.input("year", years[0]);
+    }
+  }
+
+  // Add Month/Quarter filtering to Tabs to ensure they hide if no data in selected period
+  if (mode === "month" && month) {
+    whereConditions.push("tr_month = @month");
+    groupReq.input("month", month.padStart(2, '0'));
+  } else if (mode === "quarter" && quarter) {
+    whereConditions.push("CEILING(CAST(tr_month AS INT) / 3.0) = @quarter");
+    groupReq.input("quarter", parseInt(quarter));
+  }
+
+  const groupQuery = `
+    SELECT product_group 
+    FROM summary_report 
+    WHERE ${whereConditions.join(" AND ")}
+    GROUP BY product_group 
+    HAVING SUM(ISNULL(total_amount, 0)) > 0
+  `;
+  
   const groupRes = await groupReq.query(groupQuery);
   response.productGroups = ["all", ...groupRes.recordset.map(r => r.product_group)];
 

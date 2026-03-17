@@ -28,8 +28,8 @@
     />
 
     <!-- Main Chart & Ranking Card -->
-    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden mb-6 min-h-[480px] flex flex-col">
-      <div v-if="dashboardData && hasActualData" class="p-6 grid grid-cols-1 lg:grid-cols-3 gap-12 bg-white flex-1">
+    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden mb-6 min-h-[520px] flex flex-col relative">
+      <div v-show="dashboardData && hasActualData" class="p-6 grid grid-cols-1 lg:grid-cols-3 gap-12 bg-white flex-1 w-full">
         
         <!-- Left: Revenue Chart -->
         <div class="lg:col-span-2 relative">
@@ -77,7 +77,7 @@
       </div>
 
       <!-- Empty State -->
-      <div v-else class="flex-1 p-24 flex flex-col items-center justify-center bg-gray-50/30">
+      <div v-if="dashboardData && !hasActualData" class="absolute inset-0 flex flex-col items-center justify-center bg-gray-50/30 z-20">
         <div class="w-40 h-40 mb-8 bg-white rounded-full flex items-center justify-center shadow-xl border border-gray-100 relative">
           <svg xmlns="http://www.w3.org/2000/svg" class="h-20 w-20 text-gray-200" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M9 17v-2m3 2v-4m3 2v-6m-8 4h8m-1 9l-1 1H7l-1-1V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
@@ -89,7 +89,7 @@
           </div>
         </div>
         <h4 class="text-2xl font-black text-gray-800 mb-3">Không tìm thấy dữ liệu</h4>
-        <p class="text-gray-400 max-w-sm text-center font-medium">Vui lòng thử điều chỉnh bộ lọc hoặc chọn khoảng thời gian khác để xem thông tin thống kê.</p>
+        <p class="text-gray-400 max-w-sm text-center font-medium px-6">Vui lòng thử điều chỉnh bộ lọc hoặc chọn khoảng thời gian khác để xem thông tin thống kê.</p>
       </div>
     </div>
   </div>
@@ -146,12 +146,22 @@ const chartInstance = shallowRef(null);
 const hasActualData = computed(() => {
   if (!dashboardData.value) return false;
   
-  if (isComparisonMode.value) {
-    const compData = dashboardData.value.comparisonData[activeMetric.value];
+  // Check if we have ANY non-zero values across ALL essential metrics to decide if we show "No Data"
+  // This prevents the dashboard from disappearing if Revenue is 0 but Service Count has data
+  const metricsToCheck = ["withVat", "serviceCount"];
+  
+  const checkValues = (dataObj) => {
+    return dataObj && dataObj.values && dataObj.values.some(v => v > 0);
+  };
+
+  const checkCompValues = (compData) => {
     return compData && compData.some(item => item.values && item.values.some(v => v > 0));
+  };
+
+  if (isComparisonMode.value) {
+    return metricsToCheck.some(m => checkCompValues(dashboardData.value.comparisonData[m]));
   } else {
-    const chartData = dashboardData.value.chartData[activeMetric.value];
-    return chartData && chartData.values && chartData.values.some(v => v > 0);
+    return metricsToCheck.some(m => checkValues(dashboardData.value.chartData[m]));
   }
 });
 
@@ -174,17 +184,28 @@ const handleCompareRequest = async (config) => {
   await processData();
 };
 
-const exitComparison = () => {
+const exitComparison = async () => {
   isComparisonMode.value = false;
-  processData();
+  await processData();
 };
 
 const processData = async () => {
   try {
     const response = await loadData();
     await nextTick();
-    if (!chartInstance.value && chartRef.value) initChart();
-    if (response) updateUI();
+    
+    // Ensure chart is initialized if it wasn't or if DOM was reset
+    if (!chartInstance.value && chartRef.value) {
+      initChart();
+    }
+    
+    if (response) {
+      updateUI();
+      // Important: Call resize when data appears because the container might have been hidden (0x0)
+      if (hasActualData.value && chartInstance.value) {
+        setTimeout(() => chartInstance.value?.resize(), 100);
+      }
+    }
   } catch (e) {
     console.error("Process data failed:", e);
   }
