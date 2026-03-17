@@ -68,7 +68,7 @@ export const getDashboardData = async (req, res) => {
       mode: mode || (month ? "month" : quarter ? "quarter" : "all"),
     };
 
-    const metrics = ["withVat", "withoutVat", "vat"];
+    const metrics = ["withVat", "withoutVat", "vat", "serviceCount"];
     const response = { rankings: {}, chartData: {}, comparisonData: {} };
 
     metrics.forEach((metric) => {
@@ -115,10 +115,18 @@ export const getStatus = async (req, res) => {
  */
 export const getStaffNames = async (req, res) => {
   try {
+    const { year } = req.query;
     const db = await getDb();
-    const result = await db.request().query(
-      "SELECT DISTINCT nhan_vien FROM detail ORDER BY nhan_vien ASC"
-    );
+    const request = db.request();
+    
+    let query = "SELECT DISTINCT nhan_vien FROM detail";
+    if (year) {
+      query += " WHERE tr_year = @year";
+      request.input("year", parseInt(year));
+    }
+    query += " ORDER BY nhan_vien ASC";
+    
+    const result = await request.query(query);
     res.json(result.recordset.map((r) => r.nhan_vien));
   } catch (err) {
     res.status(500).json({ error: err.message });

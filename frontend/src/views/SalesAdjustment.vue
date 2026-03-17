@@ -3,6 +3,9 @@ import { ref, onMounted } from 'vue';
 import { dashboardService, adjustmentService } from '../services/apiService';
 import AdjustmentForm from '../components/adjustments/AdjustmentForm.vue';
 import AdjustmentHistory from '../components/adjustments/AdjustmentHistory.vue';
+import { useToast } from '../composables/useToast';
+
+const toast = useToast();
 
 const staffList = ref([]);
 const productGroupList = ref([]);
@@ -10,10 +13,10 @@ const adjustmentHistory = ref([]);
 const submitting = ref(false);
 const formRef = ref(null);
 
-const fetchData = async () => {
+const fetchData = async (year) => {
   try {
     const [staffRes, groupRes, historyRes] = await Promise.all([
-      dashboardService.getStaffNames(),
+      dashboardService.getStaffNames({ year }),
       dashboardService.getProductGroups(),
       adjustmentService.getAdjustments()
     ]);
@@ -25,7 +28,14 @@ const fetchData = async () => {
   }
 };
 
-onMounted(fetchData);
+const onYearChange = (year) => {
+  fetchData(year);
+};
+
+onMounted(() => {
+  const currentYear = new Date().getFullYear();
+  fetchData(currentYear);
+});
 
 const handleNewAdjustment = async (formData) => {
   submitting.value = true;
@@ -33,9 +43,9 @@ const handleNewAdjustment = async (formData) => {
     await adjustmentService.createAdjustment(formData);
     await fetchData();
     formRef.value?.reset();
-    alert("Đã lưu thành công!");
+    toast.success("Đã lưu thành công!");
   } catch (err) {
-    alert("Lỗi: " + (err.response?.data?.error || err.message));
+    toast.error("Lỗi: " + (err.response?.data?.error || err.message));
   } finally {
     submitting.value = false;
   }
@@ -46,8 +56,9 @@ const handleDeleteAdjustment = async (id) => {
   try {
     await adjustmentService.deleteAdjustment(id);
     await fetchData();
+    toast.success("Xóa thành công");
   } catch (err) {
-    alert("Xóa thất bại");
+    toast.error("Xóa thất bại");
   }
 };
 </script>
@@ -61,6 +72,7 @@ const handleDeleteAdjustment = async (id) => {
         :staff-list="staffList" 
         :submitting="submitting" 
         @submit="handleNewAdjustment" 
+        @year-change="onYearChange"
       />
       <AdjustmentHistory 
         class="mt-8"

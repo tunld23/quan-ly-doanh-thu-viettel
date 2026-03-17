@@ -1,5 +1,6 @@
 import { ref, computed, nextTick, watch } from "vue";
 import { fetchDashboardData } from "../services/dashboardService";
+import { useToast } from "./useToast";
 
 /**
  * Composable to manage Dashboard state and logic
@@ -11,6 +12,7 @@ export function useDashboard() {
   const loadingStatusText = ref("Đang kết nối Server...");
   const showCompareModal = ref(false);
   const suppressFetch = ref(false);
+  const toast = useToast();
 
   // --- DATA STATE ---
   const dashboardData = ref(null);
@@ -150,6 +152,7 @@ export function useDashboard() {
       return response;
     } catch (e) {
       console.error("Dashboard Load Error:", e);
+      toast.error(e.message || "Lỗi tải dữ liệu Dashboard");
       throw e;
     } finally {
       isProcessing.value = false;

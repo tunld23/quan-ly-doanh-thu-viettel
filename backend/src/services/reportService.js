@@ -41,13 +41,19 @@ export const updateSummaryReport = async () => {
         d.product_group, 
         d.source_type,
         d.amount as qty,
-        ISNULL(p.price, 0) * d.amount as amt
+        -- Sử dụng giá từ đúng tháng/năm, nếu không có thì lấy giá gần nhất (MAX) của sản phẩm đó
+        ISNULL(ISNULL(p.price, p_fallback.price), 0) * d.amount as amt
       FROM detail d
       LEFT JOIN (
          SELECT ma_hang, tr_year, tr_month, MAX(without_vat) as price
          FROM product
          GROUP BY ma_hang, tr_year, tr_month
       ) p ON d.ma_hang = p.ma_hang AND d.tr_year = p.tr_year AND d.tr_month = p.tr_month
+      LEFT JOIN (
+         SELECT ma_hang, MAX(without_vat) as price
+         FROM product
+         GROUP BY ma_hang
+      ) p_fallback ON d.ma_hang = p_fallback.ma_hang
       
       UNION ALL
       

@@ -8,7 +8,7 @@ const props = defineProps({
   submitting: Boolean,
 });
 
-const emit = defineEmits(["submit"]);
+const emit = defineEmits(["submit", "year-change"]);
 
 const containerRef = ref(null);
 const showStaffDropdown = ref(false);
@@ -77,6 +77,16 @@ watch(
     fetchGroups();
   },
   { immediate: true },
+);
+
+watch(
+  () => form.value.tr_year,
+  (newYear) => {
+    // Clear staff when year changes because the available list will change
+    form.value.nhan_vien = "";
+    searchStaff.value = "";
+    emit("year-change", newYear);
+  }
 );
 
 const submitForm = () => {

@@ -104,7 +104,10 @@ import StaffRanking from "./StaffRanking.vue";
 import CompareModal from "./CompareModal.vue";
 
 // --- CONFIG ---
-const metrics = [{ id: "withoutVat", name: "Doanh thu (Chưa VAT)" }];
+const metrics = [
+  { id: "withoutVat", name: "Doanh thu (Chưa VAT)" },
+  { id: "serviceCount", name: "Số lượng" }
+];
 
 // --- STATE ---
 const {

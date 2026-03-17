@@ -3,6 +3,7 @@ import { ref } from "vue";
 import { useRoute } from "vue-router";
 import Sidebar from "./components/layout/Sidebar.vue";
 import Header from "./components/layout/Header.vue";
+import ToastContainer from "./components/common/ToastContainer.vue";
 
 const route = useRoute();
 const isSidebarOpen = ref(true);
@@ -14,6 +15,9 @@ const toggleSidebar = () => {
 
 <template>
   <div class="flex h-screen bg-gray-50 font-sans text-gray-900 overflow-hidden">
+    <!-- Toast Layer -->
+    <ToastContainer />
+    
     <!-- Sidebar -->
     <Sidebar :is-open="isSidebarOpen" :current-path="route.path" />
 

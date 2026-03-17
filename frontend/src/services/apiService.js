@@ -9,7 +9,7 @@ const api = axios.create({
 export const dashboardService = {
   getDashboardData: (params) => api.get('/dashboard', { params }),
   getStatus: () => api.get('/status'),
-  getStaffNames: () => api.get('/staff'),
+  getStaffNames: (params) => api.get('/staff', { params }),
   getProductGroups: (source) => api.get('/product-groups', { params: { source } })
 };
 
