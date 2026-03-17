@@ -70,7 +70,6 @@ export const getUpdateOption = (
         fontSize: 10,
         color: "#6b7280",
       },
-      // Let ECharts handle axis scale more naturally
       boundaryGap: ["0%", "15%"],
     },
     series: [
@@ -94,7 +93,6 @@ export const getUpdateOption = (
 
             let res = formatMoney(curVal, isCurrency);
 
-            // Luôn hiện growth nếu có dữ liệu so sánh và giá trị hiện tại > 0 (tránh hiện giảm 100%)
             if (oldVal > 0 && curVal > 0) {
               const growth = getGrowth(curVal, oldVal);
               const icon = growth >= 0 ? "▲" : "▼";
@@ -165,51 +163,52 @@ export const getUpdateOption = (
 };
 
 export const getComparisonOption = (data, metricName, metricId = "") => {
-  const { labels, current, prev1, prev2, years } = data;
+  const { labels, years, yearData } = data;
   const isCurrency = metricId !== "serviceCount";
 
   const getGrowth = (cur, prev) => {
-    if (!prev) return 0;
+    if (!prev || prev === 0) return 0;
     return (((cur - prev) / prev) * 100).toFixed(1);
   };
 
+  const displayYears = [...years].sort((a,b) => a - b);
   const series = [];
-  
-  // N-2 (Nếu có)
-  if (years && years.length >= 3) {
-    series.push({
-      name: String(years[2]),
-      type: "bar",
-      data: prev2,
-      itemStyle: {
-        color: "#5D8FFF",
-        opacity: 0.25,
-        borderRadius: [4, 4, 0, 0],
-      },
-    });
-  }
 
-  // N-1 (Nếu có)
-  if (years && years.length >= 2) {
+  // Professional Gradient Blue (Decreasing intensity from Newest to Oldest)
+  const colors = [
+    "#1D4ED8", // Dark Blue (Newest)
+    "#3B82F6", // Blue
+    "#60A5FA", // Light Blue
+    "#93C5FD", // Sky Blue
+    "#BFDBFE", // Faded Blue
+    "#DBEAFE"  // Very Light Blue
+  ];
+
+  displayYears.forEach((y, idx) => {
+    // Reversed: Oldest year (idx 0) gets colors[0] (Dark Blue)
+    const colorIdx = idx % colors.length;
+    const values = yearData[y];
+    const prevYear = displayYears[idx - 1];
+    const prevValues = prevYear ? yearData[prevYear] : null;
+
     series.push({
-      name: String(years[1]),
+      name: String(y),
       type: "bar",
-      data: prev1,
+      barMaxWidth: 40,
+      data: values,
       itemStyle: {
-        color: "#5D8FFF",
-        opacity: 0.55,
+        color: colors[colorIdx],
         borderRadius: [4, 4, 0, 0],
       },
       label: {
-        show: labels.length <= 6,
+        show: labels.length <= 6 && displayYears.length <= 3,
         position: "top",
         distance: 5,
         formatter: (params) => {
-          if (years.length < 3) return "";
-          const idx = params.dataIndex;
-          const curVal = prev1[idx];
-          const oldVal = prev2[idx];
-          if (curVal === 0 || !oldVal) return "";
+          if (!prevValues) return "";
+          const curVal = params.value;
+          const oldVal = prevValues[params.dataIndex];
+          if (curVal <= 0 || !oldVal || oldVal <= 0) return "";
           const growth = getGrowth(curVal, oldVal);
           const icon = growth >= 0 ? "▲" : "▼";
           return `{${growth >= 0 ? "up" : "down"}|${Math.abs(growth)}%}`;
@@ -220,42 +219,15 @@ export const getComparisonOption = (data, metricName, metricId = "") => {
         },
       },
     });
-  }
-
-  // Năm hiện tại (Luôn có)
-  if (years && years.length >= 1) {
-    series.push({
-      name: String(years[0]),
-      type: "bar",
-      data: current,
-      itemStyle: { color: "#5D8FFF", opacity: 1, borderRadius: [4, 4, 0, 0] },
-      label: {
-        show: labels.length <= 6,
-        position: "top",
-        distance: 5,
-        formatter: (params) => {
-          if (years.length < 2) return "";
-          const idx = params.dataIndex;
-          const curVal = current[idx];
-          const oldVal = prev1[idx];
-          if (curVal <= 0 || !oldVal) return "";
-          const growth = getGrowth(curVal, oldVal);
-          const icon = growth >= 0 ? "▲" : "▼";
-          return `{${growth >= 0 ? "up" : "down"}|${Math.abs(growth)}%}`;
-        },
-        rich: {
-          up: { color: "#10B981", fontSize: 8, fontWeight: "bold", backgroundColor: "#D1FAE5", padding: [1, 2], borderRadius: 2 },
-          down: { color: "#EF4444", fontSize: 8, fontWeight: "bold", backgroundColor: "#FEE2E2", padding: [1, 2], borderRadius: 2 },
-        },
-      },
-    });
-  }
+  });
 
   return {
     legend: {
       show: true,
       top: 0,
-      data: years.map(String),
+      icon: "roundRect",
+      data: displayYears.map(String),
+      textStyle: { fontWeight: "bold", fontSize: 12 }
     },
     grid: {
       top: 80,
@@ -267,43 +239,54 @@ export const getComparisonOption = (data, metricName, metricId = "") => {
     xAxis: {
       type: "category",
       data: labels,
-      axisLabel: { fontSize: 11, color: "#6b7280" },
+      axisLabel: { fontSize: 11, color: "#6b7280", fontWeight: "bold" },
     },
     yAxis: {
       type: "value",
-      axisLabel: { formatter: (v) => formatMoney(v, isCurrency), fontSize: 10 },
-      splitLine: { lineStyle: { type: "dashed" } },
+      axisLabel: { 
+        formatter: (v) => formatMoney(v, isCurrency), 
+        fontSize: 10,
+        fontWeight: "bold"
+      },
+      splitLine: { lineStyle: { type: "dashed", color: "#f0f0f0" } },
       boundaryGap: ["0%", "15%"],
     },
     tooltip: {
       trigger: "axis",
       axisPointer: { type: "shadow" },
+      backgroundColor: "rgba(255, 255, 255, 0.98)",
+      borderColor: "#f0f0f0",
+      borderWidth: 1,
+      textStyle: { color: "#333" },
       formatter: (params) => {
         if (!params || !params.length) return "";
-        let res = `<div style="font-weight:bold;margin-bottom:8px;border-bottom:1px solid #eee;padding-bottom:5px;">${params[0].name}</div>`;
+        let res = `<div style="font-weight:bold;margin-bottom:10px;border-bottom:1px solid #eee;padding-bottom:6px;font-size:14px;">${params[0].name}</div>`;
 
-        // Sort params to match years array [N, N-1, N-2]
-        const sorted = [...params].sort((a, b) => b.seriesName - a.seriesName);
+        const sortedParams = [...params].sort((a,b) => b.seriesName - a.seriesName);
 
-        sorted.forEach((p) => {
-          res += `<div style="display:flex;justify-content:space-between;gap:20px;margin-bottom:3px;">
-            <span>${p.marker} Năm ${p.seriesName}:</span>
-            <span style="font-weight:bold">${p.value.toLocaleString("vi-VN")}${isCurrency ? ' VNĐ' : ''}</span>
-          </div>`;
+        sortedParams.forEach((p) => {
+          const curVal = p.value || 0;
+          const currentYear = parseInt(p.seriesName);
+          const prevYear = currentYear - 1;
+          const prevParam = sortedParams.find(sp => parseInt(sp.seriesName) === prevYear);
+          const prevVal = prevParam ? prevParam.value : null;
+
+          res += `<div style="display:flex;justify-content:space-between;gap:30px;margin-bottom:5px;align-items:center;">
+            <div style="display:flex;items-center;gap:8px;">
+              ${p.marker} <span style="font-weight:bold;">Năm ${p.seriesName}:</span>
+            </div>
+            <div style="text-align:right;">
+              <div style="font-weight:black;color:#1e293b;">${curVal.toLocaleString("vi-VN")}${isCurrency ? ' VNĐ' : ''}</div>`;
+          
+          if (prevVal && prevVal > 0 && curVal > 0) {
+            const growth = getGrowth(curVal, prevVal);
+            const color = growth >= 0 ? "#10B981" : "#EF4444";
+            const icon = growth >= 0 ? "▲" : "▼";
+            res += `<div style="font-size:10px;color:${color};font-weight:bold;">${icon} ${Math.abs(growth)}% so với ${prevYear}</div>`;
+          }
+          
+          res += `</div></div>`;
         });
-
-        if (years && years.length > 1) {
-          const curVal = current[params[0].dataIndex] || 0;
-          const p1Val = prev1[params[0].dataIndex] || 0;
-          const growth = getGrowth(curVal, p1Val);
-          const color = growth >= 0 ? "#10B981" : "#EF4444";
-          const icon = growth >= 0 ? "▲" : "▼";
-
-          res += `<div style="margin-top:8px;padding-top:8px;border-top:1px dashed #eee;color:${color};font-weight:bold;text-align:right;">
-            ${icon} So với ${years[1]}: ${Math.abs(growth)}% 
-            (${(curVal - p1Val).toLocaleString("vi-VN")}${isCurrency ? ' VNĐ' : ''})
-          </div>`;
-        }
 
         return res;
       },

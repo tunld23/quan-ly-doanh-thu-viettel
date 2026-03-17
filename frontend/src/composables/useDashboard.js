@@ -97,16 +97,8 @@ export function useDashboard() {
       const sortedYears = [...availableYearsFromDb.value]
         .map(y => parseInt(y))
         .sort((a, b) => b - a);
-      
-      const pivotYear = parseInt(selectedYear.value) || sortedYears[0];
-      const pivotIndex = sortedYears.indexOf(pivotYear);
-      
-      // Get up to 3 years starting from the pivot
-      const yearsToFetch = pivotIndex !== -1 
-        ? sortedYears.slice(pivotIndex, pivotIndex + 3)
-        : sortedYears.slice(0, 3);
         
-      yearParam = yearsToFetch.join(",");
+      yearParam = sortedYears.join(",");
     }
 
     return {

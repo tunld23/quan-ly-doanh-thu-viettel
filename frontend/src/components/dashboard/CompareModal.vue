@@ -13,7 +13,7 @@
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
                 </svg>
              </div>
-             So sánh 3 năm
+             So sánh các năm
           </h3>
           <button @click="$emit('update:show', false)" class="text-gray-400 hover:text-gray-600 transition-colors p-2 rounded-full hover:bg-gray-100">
             <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
@@ -61,7 +61,7 @@
                   <option v-for="m in 12" :key="m" :value="String(m)">Tháng {{ m }}</option>
                 </template>
             </select>
-            <p class="mt-3 text-[11px] text-slate-400 font-medium italic">* Biểu đồ sẽ hiển thị dữ liệu năm đang chọn cùng 2 năm trước đó.</p>
+            <p class="mt-3 text-[11px] text-slate-400 font-medium italic">* Biểu đồ sẽ hiển thị dữ liệu so sánh các năm có trong hệ thống.</p>
           </div>
         </div>
 
@@ -96,12 +96,20 @@ watch(() => props.show, (newVal) => {
 });
 
 const handleSubmit = () => {
+  // First emit close to ensure modal disappears immediately
+  emit('update:show', false);
+  
+  // Then emit compare event
   emit('compare', {
     mode: localMode.value,
     value: localValue.value
   });
-  emit('update:show', false);
 };
+
+// Reset value when mode changes to prevent cross-mode pollution
+watch(localMode, () => {
+  localValue.value = "";
+});
 </script>
 
 <style scoped>

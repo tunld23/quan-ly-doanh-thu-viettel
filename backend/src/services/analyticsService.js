@@ -90,14 +90,12 @@ export function aggregateComparisonData(allData, filters, metricField) {
   // 1. Determine comparison years
   let years = [];
   if (year?.includes(',')) {
-    years = year.split(',').map(y => parseInt(y.trim()));
+    years = year.split(',').map(y => parseInt(y.trim())).sort((a, b) => b - a);
   } else if (year) {
     const pivot = parseInt(year);
-    const existingYears = [...new Set(allData.map(d => d.nam))];
-    years = [pivot, pivot - 1, pivot - 2].filter(y => existingYears.includes(y));
-    if (years.length === 0) years = [pivot];
+    years = [...new Set(allData.map(d => d.nam))].sort((a, b) => b - a);
   } else {
-    return { labels: [], current: [], prev1: [], prev2: [], years: [] };
+    return { labels: [], years: [], yearData: {} };
   }
 
   // 2. Prepare time labels
@@ -125,17 +123,12 @@ export function aggregateComparisonData(allData, filters, metricField) {
       .reduce((sum, i) => sum + (i[metricField] || 0), 0);
   };
 
-  const current = [];
-  const prev1 = [];
-  const prev2 = [];
-
-  timeUnits.forEach(unit => {
-    current.push(getAggregation(allData, years[0], unit.m, unit.q));
-    if (years[1]) prev1.push(getAggregation(allData, years[1], unit.m, unit.q));
-    if (years[2]) prev2.push(getAggregation(allData, years[2], unit.m, unit.q));
+  const yearData = {};
+  years.forEach(y => {
+    yearData[y] = timeUnits.map(unit => getAggregation(allData, y, unit.m, unit.q));
   });
 
-  return { labels, current, prev1, prev2, years };
+  return { labels, years, yearData };
 }
 
 /**

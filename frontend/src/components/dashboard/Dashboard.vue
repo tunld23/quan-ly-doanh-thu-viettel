@@ -38,7 +38,7 @@
               <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
               </svg>
-              {{ isComparisonMode ? "So sánh 3 năm" : "Biểu đồ Doanh Thu" }}
+              {{ isComparisonMode ? "So sánh các năm" : "Biểu đồ Doanh Thu" }}
             </div>
 
             <button
@@ -155,7 +155,11 @@ const hasActualData = computed(() => {
   };
 
   const checkCompValues = (compData) => {
-    return compData && compData.some(item => item.values && item.values.some(v => v > 0));
+    if (!compData || !compData.yearData) return false;
+    // Iterate through all years in yearData object
+    return Object.values(compData.yearData).some(yearValues => 
+      yearValues && yearValues.some(v => v > 0)
+    );
   };
 
   if (isComparisonMode.value) {
@@ -175,13 +179,27 @@ const initChart = () => {
   }
 };
 
-const handleCompareRequest = async (config) => {
+const handleCompareRequest = (config) => {
+  // Suppress the automatic watcher-triggered fetch while we update multiple filters
+  suppressFetch.value = true;
+  
   if (!selectedYear.value) selectedYear.value = "2025";
   isComparisonMode.value = true;
   filterMode.value = config.mode;
-  if (config.mode === "month") selectedMonth.value = config.value;
-  else selectedQuarter.value = config.value;
-  await processData();
+  
+  if (config.mode === "month") {
+    selectedMonth.value = config.value;
+    selectedQuarter.value = ""; // Clear other mode's value
+  } else {
+    selectedQuarter.value = config.value;
+    selectedMonth.value = ""; // Clear other mode's value
+  }
+  
+  // Re-enable fetching and trigger ONE processData call
+  nextTick(async () => {
+    suppressFetch.value = false;
+    await processData();
+  });
 };
 
 const exitComparison = async () => {
