@@ -28,8 +28,8 @@
     />
 
     <!-- Main Chart & Ranking Card -->
-    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden mb-6">
-      <div v-if="dashboardData" class="p-6 grid grid-cols-1 lg:grid-cols-3 gap-12 bg-white">
+    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden mb-6 min-h-[480px] flex flex-col">
+      <div v-if="dashboardData && hasActualData" class="p-6 grid grid-cols-1 lg:grid-cols-3 gap-12 bg-white flex-1">
         
         <!-- Left: Revenue Chart -->
         <div class="lg:col-span-2 relative">
@@ -77,20 +77,26 @@
       </div>
 
       <!-- Empty State -->
-      <div v-else class="p-24 flex flex-col items-center justify-center bg-gray-50/30">
-        <div class="w-36 h-36 mb-8 bg-blue-50 rounded-full flex items-center justify-center shadow-inner">
-          <svg xmlns="http://www.w3.org/2000/svg" class="h-20 w-20 text-blue-200" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.2" d="M9 17v-2m3 2v-4m3 2v-6m-8 4h8m-1 9l-1 1H7l-1-1V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+      <div v-else class="flex-1 p-24 flex flex-col items-center justify-center bg-gray-50/30">
+        <div class="w-40 h-40 mb-8 bg-white rounded-full flex items-center justify-center shadow-xl border border-gray-100 relative">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-20 w-20 text-gray-200" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M9 17v-2m3 2v-4m3 2v-6m-8 4h8m-1 9l-1 1H7l-1-1V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
           </svg>
+          <div class="absolute -bottom-2 -right-2 bg-blue-500 p-3 rounded-2xl shadow-lg border-4 border-white">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+          </div>
         </div>
-        <h4 class="text-2xl font-black text-gray-800 mb-3">Chưa có dữ liệu thống kê</h4>
+        <h4 class="text-2xl font-black text-gray-800 mb-3">Không tìm thấy dữ liệu</h4>
+        <p class="text-gray-400 max-w-sm text-center font-medium">Vui lòng thử điều chỉnh bộ lọc hoặc chọn khoảng thời gian khác để xem thông tin thống kê.</p>
       </div>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted, shallowRef, watch, nextTick } from "vue";
+import { ref, onMounted, shallowRef, watch, nextTick, computed } from "vue";
 import * as echarts from "echarts";
 
 // Composables & Helpers
@@ -136,6 +142,18 @@ const {
 
 const chartRef = ref(null);
 const chartInstance = shallowRef(null);
+
+const hasActualData = computed(() => {
+  if (!dashboardData.value) return false;
+  
+  if (isComparisonMode.value) {
+    const compData = dashboardData.value.comparisonData[activeMetric.value];
+    return compData && compData.some(item => item.values && item.values.some(v => v > 0));
+  } else {
+    const chartData = dashboardData.value.chartData[activeMetric.value];
+    return chartData && chartData.values && chartData.values.some(v => v > 0);
+  }
+});
 
 // --- METHODS ---
 
