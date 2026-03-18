@@ -10,13 +10,20 @@ export const dashboardService = {
   getDashboardData: (params) => api.get('/dashboard', { params }),
   getStatus: () => api.get('/status'),
   getStaffNames: (params) => api.get('/staff', { params }),
-  getProductGroups: (source) => api.get('/product-groups', { params: { source } })
+  getProductGroups: (source) => api.get('/product-groups', { params: { source } }),
+  getYears: () => api.get('/product/years')
 };
 
 export const adjustmentService = {
   getAdjustments: () => api.get('/adjustments'),
   createAdjustment: (data) => api.post('/adjustments', data),
   deleteAdjustment: (id) => api.delete(`/adjustments/${id}`)
+};
+
+export const targetService = {
+  getTargets: (params) => api.get('/targets', { params }),
+  createTarget: (data) => api.post('/targets', data),
+  deleteTarget: (params) => api.delete('/targets', { params })
 };
 
 export const importService = {

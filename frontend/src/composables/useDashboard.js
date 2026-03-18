@@ -1,12 +1,11 @@
 import { ref, computed, nextTick, watch } from "vue";
-import { fetchDashboardData } from "../services/dashboardService";
+import { dashboardService } from "../services/apiService";
 import { useToast } from "./useToast";
 
 /**
  * Composable to manage Dashboard state and logic
  */
 export function useDashboard() {
-  // --- UI STATE ---
   const isProcessing = ref(false);
   const globalLoading = ref(false);
   const loadingStatusText = ref("Đang kết nối Server...");
@@ -14,7 +13,6 @@ export function useDashboard() {
   const suppressFetch = ref(false);
   const toast = useToast();
 
-  // --- DATA STATE ---
   const dashboardData = ref(null);
   const rankings = ref([]);
   const productGroups = ref(["all"]);
@@ -22,7 +20,6 @@ export function useDashboard() {
   const availableMonthsFromDb = ref([]);
   const availableQuartersFromDb = ref([]);
 
-  // --- FILTER STATE ---
   const activeMetric = ref("withoutVat");
   const dataType = ref("all");
   const sourceType = ref("all");
@@ -31,9 +28,8 @@ export function useDashboard() {
   const selectedQuarter = ref("");
   const filterMode = ref("all");
   const isComparisonMode = ref(false);
-  const viewMode = ref("actual"); // 'actual' = Current view, 'target' = Achievement Rate
+  const viewMode = ref("actual");
 
-  // --- COMPUTED ---
   const availableYears = computed(() => availableYearsFromDb.value);
   const availableMonths = computed(() => availableMonthsFromDb.value);
   const availableQuarters = computed(() => availableQuartersFromDb.value);
@@ -45,59 +41,37 @@ export function useDashboard() {
     mode: filterMode.value,
   }));
 
-  // --- WATCHERS ---
-  
-  // Update rankings when metric changes (from cached data)
   watch(activeMetric, (newMetric) => {
     if (dashboardData.value?.rankings) {
       rankings.value = dashboardData.value.rankings[newMetric] || [];
     }
   });
 
-  // Reset selections if they become invalid after data refresh
-  watch(availableYearsFromDb, (newYears) => {
-    if (selectedYear.value && !newYears.includes(String(selectedYear.value))) {
-      selectedYear.value = "";
+  const syncAvailableFilters = (response) => {
+    if (response) {
+      if (response.rankings) rankings.value = response.rankings[activeMetric.value] || [];
+      if (response.productGroups) productGroups.value = response.productGroups;
+      if (response.availableYears) availableYearsFromDb.value = response.availableYears;
+      if (response.availableMonths) availableMonthsFromDb.value = response.availableMonths;
+      if (response.availableQuarters) availableQuartersFromDb.value = response.availableQuarters;
+
+      if (dataType.value !== "all" && response.productGroups && !response.productGroups.includes(dataType.value)) {
+        dataType.value = "all";
+      }
     }
-  });
+  };
 
-  watch(availableMonthsFromDb, (newMonths) => {
-    if (selectedMonth.value && !newMonths.includes(String(selectedMonth.value))) {
-      selectedMonth.value = "";
-    }
-  });
-
-  watch(availableQuartersFromDb, (newQuarters) => {
-    if (selectedQuarter.value && !newQuarters.includes(String(selectedQuarter.value))) {
-      selectedQuarter.value = "";
-    }
-  });
-
-  // --- METHODS ---
-
-  /**
-   * Enter comparison mode and open modal
-   */
   const openCompare = () => {
     suppressFetch.value = true;
     showCompareModal.value = true;
     nextTick(() => suppressFetch.value = false);
   };
 
-  /**
-   * Build query parameters for API call
-   */
   const getFetchParams = () => {
     let yearParam = selectedYear.value;
-
     if (isComparisonMode.value) {
-      const sortedYears = [...availableYearsFromDb.value]
-        .map(y => parseInt(y))
-        .sort((a, b) => b - a);
-        
-      yearParam = sortedYears.sort((a, b) => a - b).join(",");
+      yearParam = [...availableYearsFromDb.value].map(y => parseInt(y)).sort((a, b) => a - b).join(",");
     }
-
     return {
       type: dataType.value,
       source: sourceType.value,
@@ -109,37 +83,15 @@ export function useDashboard() {
     };
   };
 
-  /**
-   * Main data loading function
-   */
   const loadData = async () => {
-    // Simplified: stay in comparison mode if requested, regardless of selectedYear
-
     isProcessing.value = true;
     try {
-      const params = getFetchParams();
-      const response = await fetchDashboardData(params);
-      
-      dashboardData.value = response;
-
-      // Sync data to state
-      if (response) {
-        if (response.rankings) rankings.value = response.rankings[activeMetric.value] || [];
-        if (response.productGroups) productGroups.value = response.productGroups;
-        if (response.availableYears) availableYearsFromDb.value = response.availableYears;
-        if (response.availableMonths) availableMonthsFromDb.value = response.availableMonths;
-        if (response.availableQuarters) availableQuartersFromDb.value = response.availableQuarters;
-
-        // Auto-reset category if it no longer exists in current source
-        if (dataType.value !== "all" && response.productGroups && !response.productGroups.includes(dataType.value)) {
-          dataType.value = "all";
-        }
-      }
-      
-      return response;
+      const response = await dashboardService.getDashboardData(getFetchParams());
+      dashboardData.value = response.data;
+      syncAvailableFilters(response.data);
+      return response.data;
     } catch (e) {
-      console.error("Dashboard Load Error:", e);
-      toast.error(e.message || "Lỗi tải dữ liệu Dashboard");
+      toast.error(e.response?.data?.error || "Lỗi tải dữ liệu Dashboard");
       throw e;
     } finally {
       isProcessing.value = false;
@@ -147,33 +99,9 @@ export function useDashboard() {
   };
 
   return {
-    // State
-    isProcessing,
-    globalLoading,
-    loadingStatusText,
-    showCompareModal,
-    suppressFetch,
-    dashboardData,
-    rankings,
-    productGroups,
-    activeMetric,
-    dataType,
-    sourceType,
-    selectedYear,
-    selectedMonth,
-    selectedQuarter,
-    filterMode,
-    isComparisonMode,
-    viewMode,
-    
-    // Computed
-    availableYears,
-    availableMonths,
-    availableQuarters,
-    filters,
-    
-    // Actions
-    openCompare,
-    loadData,
+    isProcessing, globalLoading, loadingStatusText, showCompareModal, suppressFetch, dashboardData, rankings, productGroups,
+    activeMetric, dataType, sourceType, selectedYear, selectedMonth, selectedQuarter, filterMode, isComparisonMode, viewMode,
+    availableYears, availableMonths, availableQuarters, filters,
+    openCompare, loadData,
   };
 }
