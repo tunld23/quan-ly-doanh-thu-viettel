@@ -54,7 +54,8 @@ export const getDashboardData = async (req, res) => {
       month, 
       quarter, 
       mode, 
-      source = "all" 
+      source = "all",
+      viewMode: reqViewMode
     } = req.query;
     
     const db = await getDb();
@@ -79,10 +80,9 @@ export const getDashboardData = async (req, res) => {
     });
 
     // Populate dynamic filter lists (Groups, Years, Months, Quarters)
-    await populateFilterMetadata(db, response, { type, source, year, month, quarter, mode });
+    await populateFilterMetadata(db, response, { type, source, year, month, quarter, mode, viewMode: reqViewMode });
 
     // Target Achievement Calculation
-    const { viewMode: reqViewMode } = req.query;
     if (reqViewMode === 'target') {
         const rawYear = req.query.year;
         let years = [];
@@ -104,31 +104,31 @@ export const getDashboardData = async (req, res) => {
         // 1. Get ALL unique product groups for these years from BOTH targets and actuals
         const groupReq = db.request();
         const yearsStr = years.join(",");
-        let groupQuery = `
-            SELECT DISTINCT TRIM(product_group) as pg 
-            FROM summary_report 
-            WHERE tr_year IN (${yearsStr})
-              AND (total_amount > 0 OR service_count > 0)
-              AND product_group IS NOT NULL AND product_group <> ''
-        `;
+        
+        let actualWhere = `tr_year IN (${yearsStr}) AND (total_amount > 0 OR service_count > 0)`;
+        let targetWhere = `tr_year IN (${yearsStr})`;
 
         if (source && source !== "all") {
-            const groupReqSource = db.request();
-            groupReqSource.input("source", source);
-            groupQuery = `
-                SELECT DISTINCT TRIM(product_group) as pg 
-                FROM summary_report 
-                WHERE tr_year IN (${yearsStr}) 
-                  AND LOWER(TRIM(source_type)) = LOWER(TRIM(@source))
-                  AND (total_amount > 0 OR service_count > 0)
-                  AND product_group IS NOT NULL AND product_group <> ''
-            `;
+            actualWhere += " AND LOWER(TRIM(source_type)) = LOWER(TRIM(@source))";
+            targetWhere += " AND LOWER(TRIM(source_type)) = LOWER(TRIM(@source))";
             groupReq.input("source", source);
         }
         
         if (type && type !== "all") {
-            groupQuery = `SELECT TRIM(@type) as pg`;
+            actualWhere += " AND product_group = @type";
+            targetWhere += " AND product_group = @type";
             groupReq.input("type", type);
+        }
+
+        let groupQuery = `
+            SELECT DISTINCT TRIM(product_group) as pg FROM summary_report WHERE ${actualWhere}
+                AND TRIM(product_group) IN (
+                    SELECT DISTINCT TRIM(product_group) FROM targets WHERE ${targetWhere} AND amount > 0
+                )
+        `;
+
+        if (type && type !== "all") {
+            groupQuery = `SELECT TRIM(@type) as pg`;
         }
 
         const groupRes = await groupReq.query(groupQuery);
@@ -319,44 +319,68 @@ async function fetchRawDashboardData(db, { type, year, source }) {
   return recordset;
 }
 
-async function populateFilterMetadata(db, response, { type, source, year, month, quarter, mode }) {
-  // 1. Available Product Groups (Filtered by ALL current filters and MUST have revenue > 0)
+async function populateFilterMetadata(db, response, { type, source, year, month, quarter, mode, viewMode }) {
+  // 1. Available Product Groups (Filtered by ALL current filters)
   const groupReq = db.request();
-  let whereConditions = ["product_group IS NOT NULL"];
+  let whereActual = ["product_group IS NOT NULL"];
+  let whereTarget = ["product_group IS NOT NULL"];
   
   if (source !== "all") {
-    whereConditions.push("source_type = @source");
+    whereActual.push("source_type = @source");
+    whereTarget.push("source_type = @source");
     groupReq.input("source", source);
   }
   
   if (year) {
     const years = year.split(",").map(y => parseInt(y.trim()));
     if (years.length > 1) {
-      whereConditions.push(`tr_year IN (${years.map((_, i) => `@gy${i}`).join(",")})`);
-      years.forEach((y, i) => groupReq.input(`gy${i}`, y));
+        whereActual.push(`tr_year IN (${years.map((_, i) => `@gy${i}`).join(",")})`);
+        whereTarget.push(`tr_year IN (${years.map((_, i) => `@gy${i}`).join(",")})`);
+        years.forEach((y, i) => groupReq.input(`gy${i}`, y));
     } else {
-      whereConditions.push("tr_year = @year");
-      groupReq.input("year", years[0]);
+        whereActual.push("tr_year = @year");
+        whereTarget.push("tr_year = @year");
+        groupReq.input("year", years[0]);
     }
   }
 
-  // Add Month/Quarter filtering to Tabs to ensure they hide if no data in selected period
   if (mode === "month" && month) {
-    whereConditions.push("tr_month = @month");
+    whereActual.push("tr_month = @month");
+    whereTarget.push("tr_month = @month");
     groupReq.input("month", month.padStart(2, '0'));
   } else if (mode === "quarter" && quarter) {
-    whereConditions.push("CEILING(CAST(tr_month AS INT) / 3.0) = @quarter");
-    groupReq.input("quarter", parseInt(quarter));
+    const q = parseInt(quarter);
+    whereActual.push("CEILING(CAST(tr_month AS INT) / 3.0) = @quarter");
+    whereTarget.push("tr_month IN (@m1, @m2, @m3)");
+    groupReq.input("quarter", q);
+    groupReq.input("m1", ((q - 1) * 3 + 1).toString().padStart(2, '0'));
+    groupReq.input("m2", ((q - 1) * 3 + 2).toString().padStart(2, '0'));
+    groupReq.input("m3", ((q - 1) * 3 + 3).toString().padStart(2, '0'));
   }
 
-  const whereStr = whereConditions.join(" AND ");
-  const groupQuery = `
-    SELECT DISTINCT TRIM(product_group) as product_group 
-    FROM summary_report 
-    WHERE ${whereStr} 
-      AND (total_amount > 0 OR service_count > 0)
-      AND product_group IS NOT NULL AND product_group <> ''
-  `;
+  const actualWhereStr = whereActual.join(" AND ");
+  const targetWhereStr = whereTarget.join(" AND ");
+
+  let groupQuery = "";
+  if (viewMode === 'target') {
+    // ONLY show groups that have BOTH a target AND an actual recorded (since rate 0 shows "No Data")
+    groupQuery = `
+      SELECT DISTINCT TRIM(product_group) as product_group 
+      FROM summary_report 
+      WHERE ${actualWhereStr} AND (total_amount > 0 OR service_count > 0)
+        AND TRIM(product_group) IN (
+            SELECT DISTINCT TRIM(product_group) FROM targets WHERE ${targetWhereStr} AND amount > 0
+        )
+    `;
+  } else {
+    groupQuery = `
+      SELECT DISTINCT TRIM(product_group) as product_group 
+      FROM summary_report 
+      WHERE ${actualWhereStr} 
+        AND (total_amount > 0 OR service_count > 0)
+        AND product_group IS NOT NULL AND product_group <> ''
+    `;
+  }
   
   const groupRes = await groupReq.query(groupQuery);
   const otherGroups = [...new Set(groupRes.recordset.map(r => r.product_group))].sort();
