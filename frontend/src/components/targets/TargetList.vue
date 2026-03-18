@@ -1,5 +1,6 @@
 <script setup>
 import { defineProps, defineEmits, ref } from "vue";
+import EmptyData from "../common/EmptyData.vue";
 
 const props = defineProps({
   filteredTargets: Array,
@@ -85,9 +86,8 @@ const onDelete = (target) => {
             <td colspan="5" class="px-6 py-10 text-center text-gray-400 text-xs font-bold animate-pulse">Đang nạp dữ liệu...</td>
           </tr>
           <tr v-else-if="filteredTargets.length === 0">
-            <td colspan="5" class="px-6 py-16 text-center">
-              <div class="text-gray-300 italic text-sm mb-1">Không có dữ liệu phù hợp</div>
-              <div class="text-[9px] text-gray-400 font-bold uppercase tracking-widest opacity-60">Hãy thay đổi bộ lọc</div>
+            <td colspan="5">
+              <EmptyData title="Danh sách trống" message="Không có dữ liệu chỉ tiêu nào phù hợp với bộ lọc hiện tại." />
             </td>
           </tr>
           <tr
