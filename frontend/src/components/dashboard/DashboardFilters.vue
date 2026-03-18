@@ -226,6 +226,7 @@ const changeFilterMode = (modeId) => {
 };
 
 const getCategoryName = (id) => {
+  if (id === "Internet truyền hình" || id === "Internet Truyền hình") return "Internet";
   const nid = String(id).toLowerCase();
   if (nid === "all") return "Tất cả";
   if (nid === "hddt") return "Hóa đơn (HDDT)";

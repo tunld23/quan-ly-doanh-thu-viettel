@@ -30,37 +30,102 @@
 
     <!-- Main Chart & Ranking Card -->
     <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden mb-6 min-h-[520px] flex flex-col relative">
-      <!-- ACTUAL VIEW: Chart + Ranking -->
-      <div v-show="viewMode === 'actual' && dashboardData && hasActualData" class="p-6 grid grid-cols-1 lg:grid-cols-3 gap-12 bg-white flex-1 w-full">
-        <!-- Left: Main Chart -->
-        <div class="lg:col-span-2 relative">
-          <h3 class="text-[17px] text-gray-800 mb-4 font-bold flex items-center justify-between">
-            <div class="flex items-center gap-2">
-              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-              </svg>
-              {{ isComparisonMode ? "So sánh các năm" : "Biểu đồ Doanh Thu" }}
+      <!-- ACTUAL VIEW: Chart + Ranking + Table -->
+      <div v-show="viewMode === 'actual' && dashboardData && hasActualData" class="p-8 bg-white flex-1 w-full space-y-12">
+        <!-- TOP ROW: Line Chart & Pie Chart -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-10">
+          <div class="lg:col-span-8 relative bg-gray-50/20 p-6 rounded-3xl border border-gray-100/50">
+            <h3 class="text-[18px] text-gray-800 mb-6 font-black flex items-center justify-between">
+              <div class="flex items-center gap-3">
+                <div class="w-1.5 h-6 bg-blue-600 rounded-full"></div>
+                {{ isComparisonMode ? "So sánh xu hướng qua các năm" : "Diễn biến Doanh Thu theo Danh mục" }}
+              </div>
+
+              <button
+                v-if="isComparisonMode"
+                @click="exitComparison"
+                class="text-[11px] font-black text-blue-600 hover:bg-blue-600 hover:text-white bg-white px-4 py-2 rounded-xl border border-blue-100 uppercase tracking-widest transition-all shadow-sm active:scale-95"
+              >
+                Thoát so sánh
+              </button>
+            </h3>
+            <div class="relative w-full h-[420px]">
+              <div ref="chartRef" class="w-full h-full"></div>
             </div>
+          </div>
 
-            <button
-              v-if="isComparisonMode"
-              @click="exitComparison"
-              class="text-[11px] font-black text-blue-500 hover:text-blue-700 bg-blue-50 px-3 py-1.5 rounded-lg border border-blue-100 uppercase tracking-wider transition-all"
-            >
-              Thoát so sánh
-            </button>
-          </h3>
-
-          <div class="relative w-full h-[360px]">
-            <div ref="chartRef" class="w-full h-full"></div>
+          <div class="lg:col-span-4">
+            <div class="bg-gray-50/50 p-6 rounded-3xl border border-gray-100 h-full flex flex-col">
+              <h4 class="text-[14px] font-black text-gray-700 mb-6 uppercase tracking-wider flex items-center gap-2">
+                <div class="w-1.5 h-4 bg-indigo-500 rounded-full"></div>
+                Cơ cấu Doanh Thu {{ selectedYear ? '(Năm ' + selectedYear + ')' : '(Tổng cộng)' }}
+              </h4>
+              <div class="relative w-full flex-1 min-h-[420px]">
+                <div ref="pieChartRef" class="w-full h-full"></div>
+              </div>
+            </div>
           </div>
         </div>
 
-        <!-- Right: Staff Ranking -->
-        <StaffRanking
-          :rankings="rankings"
-          :is-comparison-mode="isComparisonMode"
-        />
+        <!-- BOTTOM ROW: Table & Ranking -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-10 pt-10 border-t border-gray-100">
+          <div class="lg:col-span-8 space-y-6">
+             <div class="flex items-center justify-between">
+               <h3 class="text-[18px] text-gray-800 font-black flex items-center gap-3">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M3 10h18M3 14h18m-9-4v8m-7 0h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                </svg>
+                Chi tiết dữ liệu theo sản phẩm
+              </h3>
+              <div class="text-[11px] font-bold text-gray-400 bg-gray-50 px-3 py-1 rounded-full border border-gray-100">
+                Đơn vị: {{ activeMetric === 'serviceCount' ? 'Số lượng' : 'VNĐ' }}
+              </div>
+             </div>
+            
+            <div class="overflow-x-auto rounded-3xl border border-gray-100 shadow-xl shadow-gray-100/50 max-h-[600px] custom-scrollbar">
+              <table class="w-full text-left border-separate border-spacing-0">
+                <thead class="sticky top-0 z-20">
+                  <tr class="bg-gray-50/90 backdrop-blur-md">
+                    <th class="p-4 text-[11px] font-black text-gray-500 uppercase tracking-widest border-b border-gray-100 sticky left-0 bg-gray-50 z-30">Tháng</th>
+                    <th v-for="cat in (categoryData?.categories || [])" :key="cat" class="p-4 text-[11px] font-black text-gray-700 uppercase tracking-widest border-b border-gray-100 text-right min-w-[120px]">
+                      {{ cat }}
+                    </th>
+                    <th class="p-4 text-[11px] font-black text-blue-700 uppercase tracking-widest border-b border-gray-200 text-right bg-blue-50/50 sticky right-0 z-30 shadow-[-4px_0_8px_rgba(0,0,0,0.02)]">Tổng tháng</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-50 bg-white">
+                  <tr v-for="(month, idx) in (categoryData?.months || [])" :key="month" class="hover:bg-blue-50/30 transition-all group">
+                    <td class="p-4 text-[13px] font-black text-gray-600 border-r border-gray-50 sticky left-0 bg-inherit z-10">{{ month }}</td>
+                    <td v-for="catSeries in (categoryData?.series || [])" :key="catSeries.name" class="p-4 text-[13px] font-bold text-gray-700 text-right font-mono tracking-tight">
+                      {{ formatValue(catSeries.data[idx]) }}
+                    </td>
+                    <td class="p-4 text-[13px] font-black text-blue-800 text-right bg-blue-50/20 sticky right-0 z-10 font-mono shadow-[-4px_0_8px_rgba(0,0,0,0.02)] group-hover:bg-blue-100/30">
+                      {{ formatValue(calculateMonthTotal(idx)) }}
+                    </td>
+                  </tr>
+                </tbody>
+                <tfoot class="sticky bottom-0 z-20">
+                  <tr class="bg-slate-900 text-white shadow-[0_-4px_12px_rgba(0,0,0,0.1)]">
+                    <td class="p-5 text-[12px] font-black uppercase tracking-widest sticky left-0 bg-slate-900 z-10 border-r border-slate-800 rounded-bl-3xl">TỔNG NĂM</td>
+                    <td v-for="catSeries in (categoryData?.series || [])" :key="catSeries.name" class="p-5 text-[14px] text-right font-mono font-black text-blue-300">
+                      {{ formatValue(calculateCategoryTotal(catSeries.data)) }}
+                    </td>
+                    <td class="p-5 text-[15px] text-right bg-blue-600 font-mono font-black sticky right-0 z-10 shadow-[-4px_0_12px_rgba(0,0,0,0.2)] rounded-br-3xl">
+                      {{ formatValue(calculateGrandTotal()) }}
+                    </td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          </div>
+
+          <div class="lg:col-span-4">
+             <StaffRanking
+              :rankings="rankings"
+              :is-comparison-mode="isComparisonMode"
+            />
+          </div>
+        </div>
       </div>
 
       <!-- TARGET VIEW: 2 Charts Side-by-Side -->
@@ -115,7 +180,13 @@ import * as echarts from "echarts";
 
 // Composables & Helpers
 import { useDashboard } from "../../composables/useDashboard";
-import { getBaseChartOption, getUpdateOption, getComparisonOption } from "../../utils/chartConfig";
+import { 
+  getBaseChartOption, 
+  getUpdateOption, 
+  getComparisonOption,
+  getCategoryLineOption,
+  getCategoryPieOption
+} from "../../utils/chartConfig";
 
 // Components
 import LoadingOverlay from "../common/LoadingOverlay.vue";
@@ -157,10 +228,12 @@ const {
 } = useDashboard();
 
 const chartRef = ref(null);
+const pieChartRef = ref(null);
 const revChartRef = ref(null);
 const subChartRef = ref(null);
 
 const chartInstance = shallowRef(null);
+const pieChartInstance = shallowRef(null);
 const revChartInstance = shallowRef(null);
 const subChartInstance = shallowRef(null);
 
@@ -193,8 +266,13 @@ const hasActualData = computed(() => {
     return comp.years.some(y => (comp.yearData[y] || []).some(v => v > 0));
   }
   
-  const chart = dashboardData.value.chartData[m];
-  return !!(chart && chart.values?.length > 0 && chart.values.some(v => v > 0));
+  const catData = dashboardData.value.categoryData?.[m];
+  return !!(catData && catData.series?.some(s => s.data.some(v => v > 0)));
+});
+
+const categoryData = computed(() => {
+  if (!dashboardData.value || !dashboardData.value.categoryData) return null;
+  return dashboardData.value.categoryData[activeMetric.value];
 });
 
 // --- METHODS ---
@@ -207,11 +285,14 @@ const initCharts = () => {
 
     if (chartRef.value && !chartInstance.value) {
       chartInstance.value = echarts.init(chartRef.value);
-      chartInstance.value.setOption(getBaseChartOption());
+    }
+    if (pieChartRef.value && !pieChartInstance.value) {
+      pieChartInstance.value = echarts.init(pieChartRef.value);
     }
   } else {
     // Dispose actual chart if switching to target
     if (chartInstance.value) { chartInstance.value.dispose(); chartInstance.value = null; }
+    if (pieChartInstance.value) { pieChartInstance.value.dispose(); pieChartInstance.value = null; }
 
     if (revChartRef.value && !revChartInstance.value) {
       revChartInstance.value = echarts.init(revChartRef.value);
@@ -223,6 +304,7 @@ const initCharts = () => {
   
   window.addEventListener("resize", () => {
     chartInstance.value?.resize();
+    pieChartInstance.value?.resize();
     revChartInstance.value?.resize();
     subChartInstance.value?.resize();
   });
@@ -260,6 +342,7 @@ const processData = async () => {
       if (hasActualData.value) {
         setTimeout(() => {
             chartInstance.value?.resize();
+            pieChartInstance.value?.resize();
             revChartInstance.value?.resize();
             subChartInstance.value?.resize();
         }, 100);
@@ -284,18 +367,43 @@ const updateUI = () => {
 
   if (isComparisonMode.value) {
     const configData = dashboardData.value.comparisonData[activeMetric.value];
-    if (configData) {
+    if (configData && chartInstance.value) {
       chartInstance.value.setOption(getComparisonOption(configData, metricName, activeMetric.value), true);
     }
   } else {
-    const chartData = dashboardData.value.chartData[activeMetric.value];
-    if (chartData) {
-      chartInstance.value.setOption(
-        getUpdateOption(chartData.labels, chartData.values, metricName, chartData.prevValues, activeMetric.value),
-        true
-      );
+    const catData = dashboardData.value.categoryData?.[activeMetric.value];
+    if (catData) {
+      if (chartInstance.value) {
+        chartInstance.value.setOption(getCategoryLineOption(catData, metricName, activeMetric.value), true);
+      }
+      if (pieChartInstance.value) {
+        pieChartInstance.value.setOption(getCategoryPieOption(catData.pieData, metricName, activeMetric.value), true);
+      }
     }
   }
+};
+
+const formatValue = (val) => {
+  if (val === undefined || val === null) return "0";
+  if (activeMetric.value === "serviceCount") return val.toLocaleString("vi-VN");
+  
+  if (val >= 1000000000) return (val / 1000000000).toFixed(2) + " tỷ";
+  if (val >= 1000000) return (val / 1000000).toFixed(1) + " tr";
+  return val.toLocaleString("vi-VN");
+};
+
+const calculateMonthTotal = (monthIdx) => {
+  if (!categoryData.value) return 0;
+  return categoryData.value.series.reduce((sum, s) => sum + (s.data[monthIdx] || 0), 0);
+};
+
+const calculateCategoryTotal = (records) => {
+  return records.reduce((sum, v) => sum + v, 0);
+};
+
+const calculateGrandTotal = () => {
+  if (!categoryData.value) return 0;
+  return categoryData.value.series.reduce((sum, s) => sum + calculateCategoryTotal(s.data), 0);
 };
 
 const renderTargetCharts = () => {

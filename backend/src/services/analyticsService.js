@@ -203,3 +203,65 @@ export function aggregateChartData(filteredData, allData, filters, metricField) 
 
   return { labels, values, prevValues };
 }
+
+/**
+ * Aggregate data by category and month for line chart, pie chart and table
+ */
+export function aggregateCategoryData(allData, filters, metricField) {
+  const { year } = filters;
+  const targetYear = year ? parseInt(year) : NaN;
+  const isAllYears = isNaN(targetYear);
+
+  // 1. Group data into a Map for efficiency and accuracy (O(n))
+  const dataMap = new Map();
+  const foundCategories = new Set();
+
+  allData.forEach(item => {
+    // If a specific year is selected, skip other years
+    if (!isAllYears && parseInt(item.nam) !== targetYear) return;
+    
+    // Normalize Category Name (CRITICAL: Remove newlines which appear in DB)
+    let cat = (item.product_group || "Khác").toString().replace(/[\r\n\t]+/g, " ").trim();
+    if (!cat) cat = "Khác";
+
+    foundCategories.add(cat);
+    if (!dataMap.has(cat)) {
+      dataMap.set(cat, new Array(13).fill(0));
+    }
+    
+    const month = parseInt(item.thang);
+    if (month >= 1 && month <= 12) {
+      dataMap.get(cat)[month] += (Number(item[metricField]) || 0);
+    }
+  });
+
+  const categories = Array.from(foundCategories).sort();
+  const months = Array.from({ length: 12 }, (_, i) => i + 1);
+  const series = [];
+  const pieData = [];
+
+  categories.forEach(cat => {
+    const monthlyValues = months.map(m => dataMap.get(cat)[m]);
+    
+    series.push({
+      name: cat,
+      data: monthlyValues
+    });
+
+    const yearTotal = monthlyValues.reduce((a, b) => a + b, 0);
+    // Only show categories in PIE chart if they have non-zero value
+    if (yearTotal > 0.01) { 
+      pieData.push({
+        name: cat,
+        value: yearTotal
+      });
+    }
+  });
+
+  return {
+    categories,
+    months: months.map(m => `T${m}`),
+    series,
+    pieData: pieData.sort((a, b) => b.value - a.value)
+  };
+}

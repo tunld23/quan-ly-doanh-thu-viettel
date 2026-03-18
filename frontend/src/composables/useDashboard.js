@@ -50,12 +50,19 @@ export function useDashboard() {
   const syncAvailableFilters = (response) => {
     if (response) {
       if (response.rankings) rankings.value = response.rankings[activeMetric.value] || [];
-      if (response.productGroups) productGroups.value = response.productGroups;
+      
+      // Rename product groups for UI consistency
+      const rename = (name) => 
+        (name === "Internet truyền hình" || name === "Internet Truyền hình") ? "Internet" : name;
+      if (response.productGroups) {
+        productGroups.value = response.productGroups.map(rename);
+      }
+      
       if (response.availableYears) availableYearsFromDb.value = response.availableYears;
       if (response.availableMonths) availableMonthsFromDb.value = response.availableMonths;
       if (response.availableQuarters) availableQuartersFromDb.value = response.availableQuarters;
 
-      if (dataType.value !== "all" && response.productGroups && !response.productGroups.includes(dataType.value)) {
+      if (dataType.value !== "all" && productGroups.value && !productGroups.value.includes(dataType.value)) {
         dataType.value = "all";
       }
     }
@@ -87,9 +94,41 @@ export function useDashboard() {
     isProcessing.value = true;
     try {
       const response = await dashboardService.getDashboardData(getFetchParams());
-      dashboardData.value = response.data;
-      syncAvailableFilters(response.data);
-      return response.data;
+      const data = response.data;
+
+      // REQUIREMENT: Map "Internet truyền hình" (and variants) to shorter "Internet" for better UI
+      const rename = (name) => 
+        (name === "Internet truyền hình" || name === "Internet Truyền hình") ? "Internet" : name;
+
+      if (data.categoryData) {
+        Object.values(data.categoryData).forEach(m => {
+          if (m.categories) m.categories = m.categories.map(rename);
+          if (m.series) m.series.forEach(s => s.name = rename(s.name));
+          if (m.pieData) m.pieData.forEach(p => p.name = rename(p.name));
+        });
+      }
+
+      if (data.comparisonData) {
+        Object.values(data.comparisonData).forEach(m => {
+          if (m.categories) m.categories = m.categories.map(rename);
+        });
+      }
+
+      if (data.rankings) {
+        Object.values(data.rankings).forEach(list => {
+          list.forEach(item => {
+            if (item.category) item.category = rename(item.category);
+          });
+        });
+      }
+
+      if (data.targetAchievement && data.targetAchievement.labels) {
+        data.targetAchievement.labels = data.targetAchievement.labels.map(rename);
+      }
+
+      dashboardData.value = data;
+      syncAvailableFilters(data);
+      return data;
     } catch (e) {
       toast.error(e.response?.data?.error || "Lỗi tải dữ liệu Dashboard");
       throw e;

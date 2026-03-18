@@ -294,3 +294,199 @@ export const getComparisonOption = (data, metricName, metricId = "") => {
     series
   };
 };
+
+export const getCategoryLineOption = (data, metricName, metricId = "") => {
+  if (!data || !data.series) return getBaseChartOption();
+  const { categories, months, series } = data;
+  const isCurrency = metricId !== "serviceCount";
+
+  const colors = [
+    '#6366f1', '#8b5cf6', '#ec4899', '#f43f5e', 
+    '#f59e0b', '#10b981', '#06b6d4', '#3b82f6',
+    '#64748b', '#ef4444', '#84cc16', '#a855f7'
+  ];
+
+  return {
+    color: colors,
+    legend: {
+      type: 'scroll',
+      bottom: 0,
+      itemWidth: 10,
+      itemHeight: 10,
+      textStyle: { fontSize: 10, fontWeight: 'bold', color: '#64748b' }
+    },
+    tooltip: {
+      trigger: 'axis',
+      backgroundColor: 'rgba(255, 255, 255, 0.98)',
+      padding: [12, 16],
+      extraCssText: 'box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1); border-radius: 12px; border: none; min-width: 280px;',
+      formatter: (params) => {
+        let res = `<div style="font-weight:800;margin-bottom:12px;color:#1e293b;font-size:14px;border-bottom:1px solid #f1f5f9;padding-bottom:10px;display:flex;justify-content:space-between;align-items:center;">
+                    <span>${params[0].name}</span>
+                    <span style="font-size:10px;background:#f1f5f9;padding:2px 6px;border-radius:4px;color:#64748b;">${metricName}</span>
+                   </div>`;
+        const sorted = [...params].sort((a,b) => b.value - a.value);
+        sorted.forEach(p => {
+          res += `<div style="display:flex;justify-content:space-between;gap:40px;margin-bottom:6px;align-items:center;">
+                    <div style="display:flex;align-items:center;gap:8px;">
+                      <span style="display:inline-block;width:10px;height:10px;border-radius:3px;background:${p.color}"></span>
+                      <span style="font-size:12px;color:#475569;font-weight:600;">${p.seriesName}</span>
+                    </div>
+                    <span style="font-weight:800;color:#1e293b;font-size:12px;font-family:monospace;">${formatMoney(p.value, isCurrency)}</span>
+                  </div>`;
+        });
+        return res;
+      }
+    },
+    grid: { top: 40, bottom: 85, left: 10, right: 10, containLabel: true },
+    xAxis: {
+      type: 'category',
+      data: months,
+      boundaryGap: false,
+      axisLabel: { fontSize: 10, color: "#64748b", fontWeight: 'bold', margin: 15 },
+      axisLine: { lineStyle: { color: '#e2e8f0' } },
+      axisTick: { show: false }
+    },
+    yAxis: {
+      type: 'value',
+      axisLabel: { 
+        formatter: (v) => formatMoney(v, isCurrency), 
+        fontSize: 10, 
+        color: "#64748b",
+        fontWeight: 'bold',
+        margin: 10
+      },
+      splitLine: { lineStyle: { color: '#f1f5f9', type: 'dashed' } }
+    },
+    series: series.map((s, idx) => ({
+      name: s.name,
+      type: 'line',
+      smooth: false,
+      showSymbol: true,
+      symbol: 'circle',
+      symbolSize: 7,
+      itemStyle: { 
+        color: colors[idx % colors.length],
+        borderWidth: 2,
+        borderColor: '#fff'
+      },
+      data: s.data,
+      lineStyle: { 
+        width: 4, 
+        cap: 'round', 
+        shadowBlur: 10,
+        shadowColor: 'rgba(0,0,0,0.1)',
+        shadowOffsetY: 5
+      },
+      areaStyle: {
+        opacity: 0.1,
+        color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+          { offset: 0, color: colors[idx % colors.length] },
+          { offset: 1, color: 'rgba(255, 255, 255, 0)' }
+        ])
+      },
+      emphasis: { 
+        focus: 'series',
+        lineStyle: { width: 5 },
+        itemStyle: { scale: 1.5 }
+      }
+    }))
+  };
+};
+
+export const getCategoryPieOption = (pieData, metricName, metricId = "") => {
+  if (!pieData) return getBaseChartOption();
+  
+  const isCurrency = metricId !== "serviceCount";
+  
+  // 1. Data Processing: Sort by value (largest to smallest)
+  const total = pieData.reduce((acc, curr) => acc + curr.value, 0);
+  const data = [...pieData].sort((a, b) => b.value - a.value);
+
+  const colors = [
+    '#3b82f6', '#10b981', '#f59e0b', '#6366f1', 
+    '#ec4899', '#8b5cf6', '#06b6d4', '#f43f5e', '#84cc16'
+  ];
+
+  return {
+    color: colors,
+    tooltip: {
+      trigger: 'item',
+      backgroundColor: 'rgba(255, 255, 255, 0.98)',
+      padding: [12, 16],
+      borderRadius: 12,
+      borderWidth: 0,
+      extraCssText: 'box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);',
+      formatter: (p) => {
+        return `<div style="font-weight:800;color:#1e293b;margin-bottom:8px;border-bottom:1px solid #f1f5f9;padding-bottom:6px;">${p.name}</div>
+                <div style="display:flex;justify-content:space-between;gap:30px;margin-bottom:6px;">
+                  <span style="color:#64748b;font-size:12px;">Giá trị:</span>
+                  <span style="font-weight:800;color:#1e293b;">${formatMoney(p.value, isCurrency)}</span>
+                </div>
+                <div style="display:flex;justify-content:space-between;gap:30px;">
+                  <span style="color:#64748b;font-size:12px;">Tỷ trọng:</span>
+                  <span style="font-weight:900;color:${p.color};">${p.percent}%</span>
+                </div>`;
+      }
+    },
+    // Requirement 2: Legend below, vertical stack, show ALL items
+    legend: {
+      show: true,
+      type: 'scroll',
+      orient: 'vertical',
+      bottom: 0,
+      left: 'center',
+      icon: 'circle',
+      padding: [25, 0, 15, 0],
+      itemWidth: 10,
+      itemHeight: 10,
+      itemGap: 8,
+      // Requirement: Formatter [Name] : [Value] ( [Percent]% ) with 2 decimals
+      formatter: (name) => {
+        const item = data.find(d => d.name === name);
+        const percent = item ? ((item.value / total) * 100).toFixed(2) : 0;
+        const value = item ? formatMoney(item.value, isCurrency) : 0;
+        return `${name.padEnd(12, ' ')} : ${value} ( ${percent}% )`;
+      },
+      textStyle: { fontSize: 11, fontWeight: '700', color: '#64748b', fontFamily: 'monospace' }
+    },
+    title: { show: false },
+    series: [
+      {
+        name: metricName,
+        type: 'pie',
+        // Requirement 3: Traditional solid pie
+        radius: '60%',
+        center: ['50%', '32%'],
+        avoidLabelOverlap: true,
+        itemStyle: {
+          borderRadius: 0,
+          borderColor: '#fff',
+          borderWidth: 1
+        },
+        // Requirement 1: Per-item labels (INSIDE for >= 3%, Hidden for < 3%)
+        data: data.map(item => {
+          const percent = (item.value / total) * 100;
+          const isLarge = percent >= 3;
+          return {
+            ...item,
+            label: {
+              show: isLarge,
+              position: 'inside',
+              formatter: '{d}%',
+              fontSize: 12,
+              fontWeight: 'bold',
+              color: '#fff'
+            },
+            labelLine: { show: false } // Requirement: No external lines
+          };
+        }),
+        emphasis: {
+          scale: true,
+          scaleSize: 10,
+          itemStyle: { shadowBlur: 20, shadowColor: 'rgba(0,0,0,0.1)' }
+        }
+      }
+    ]
+  };
+};

@@ -70,13 +70,23 @@ export const getDashboardData = async (req, res) => {
     };
 
     const metrics = ["withVat", "withoutVat", "vat", "serviceCount"];
-    const response = { rankings: {}, chartData: {}, comparisonData: {} };
-
+    const response = { rankings: {}, chartData: {}, comparisonData: {}, categoryData: {} };
     metrics.forEach((metric) => {
+      // 1. Rankings (Always use filtered data)
       response.rankings[metric] = analytics.computeStaffRankings(recordset, analyticsFilters, metric);
+      
+      // 2. Standard Charts (Original time-series)
       const filteredData = analytics.filterDashboardData(recordset, analyticsFilters);
       response.chartData[metric] = analytics.aggregateChartData(filteredData, recordset, analyticsFilters, metric);
       response.comparisonData[metric] = analytics.aggregateComparisonData(recordset, analyticsFilters, metric);
+    });
+
+    // 3. Category Breakdown Data (Line, Pie, Table)
+    // We fetch a SEPARATE recordset without the Category filter for the Category Summary charts
+    // so that the chart always shows the full context even when a specific category is selected
+    const categoryRecordset = await fetchRawDashboardData(db, { type: "all", year, source });
+    metrics.forEach(metric => {
+      response.categoryData[metric] = analytics.aggregateCategoryData(categoryRecordset, analyticsFilters, metric);
     });
 
     // Populate dynamic filter lists (Groups, Years, Months, Quarters)
@@ -297,11 +307,11 @@ async function fetchRawDashboardData(db, { type, year, source }) {
     FROM summary_report WHERE 1=1`;
 
   if (type !== "all") {
-    query += " AND product_group = @type";
+    query += " AND LOWER(TRIM(product_group)) = LOWER(TRIM(@type))";
     request.input("type", type);
   }
   if (source !== "all") {
-    query += " AND source_type = @source";
+    query += " AND LOWER(TRIM(source_type)) = LOWER(TRIM(@source))";
     request.input("source", source);
   }
   if (year) {
@@ -397,8 +407,8 @@ async function populateFilterMetadata(db, response, { type, source, year, month,
   // 3. Available Months & Quarters
   let monthQuery = "SELECT DISTINCT tr_month FROM summary_report WHERE 1=1";
   const monthReq = db.request();
-  if (type !== "all") { monthQuery += " AND product_group = @type"; monthReq.input("type", type); }
-  if (source !== "all") { monthQuery += " AND source_type = @source"; monthReq.input("source", source); }
+  if (type !== "all") { monthQuery += " AND LOWER(TRIM(product_group)) = LOWER(TRIM(@type))"; monthReq.input("type", type); }
+  if (source !== "all") { monthQuery += " AND LOWER(TRIM(source_type)) = LOWER(TRIM(@source))"; monthReq.input("source", source); }
   if (year && !year.includes(",")) { monthQuery += " AND tr_year = @year"; monthReq.input("year", parseInt(year)); }
   
   const monthRes = await monthReq.query(monthQuery + " ORDER BY tr_month ASC");
