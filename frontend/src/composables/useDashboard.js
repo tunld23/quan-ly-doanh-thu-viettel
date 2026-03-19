@@ -58,9 +58,18 @@ export function useDashboard() {
         productGroups.value = response.productGroups;
       }
       
-      if (response.availableYears) availableYearsFromDb.value = response.availableYears;
-      if (response.availableMonths) availableMonthsFromDb.value = response.availableMonths;
-      if (response.availableQuarters) availableQuartersFromDb.value = response.availableQuarters;
+      if (response.availableYears?.length > 0) {
+        const years = new Set([...availableYearsFromDb.value, ...response.availableYears]);
+        availableYearsFromDb.value = Array.from(years).sort((a, b) => b - a);
+      }
+      if (response.availableMonths?.length > 0) {
+        const months = new Set([...availableMonthsFromDb.value, ...response.availableMonths]);
+        availableMonthsFromDb.value = Array.from(months).sort((a, b) => parseInt(a) - parseInt(b));
+      }
+      if (response.availableQuarters?.length > 0) {
+        const quarters = new Set([...availableQuartersFromDb.value, ...response.availableQuarters]);
+        availableQuartersFromDb.value = Array.from(quarters).sort((a, b) => parseInt(a) - parseInt(b));
+      }
 
       if (dataType.value !== "all" && productGroups.value && !productGroups.value.includes(dataType.value)) {
         dataType.value = "all";
