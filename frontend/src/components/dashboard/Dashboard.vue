@@ -31,7 +31,7 @@
     >
       <!-- ACTUAL VIEW: Chart + Ranking + Table -->
       <div
-        v-show="viewMode === 'actual' && dashboardData && hasActualData"
+        v-show="viewMode === 'actual' && dashboardData && hasActualData && !isProcessing"
         class="p-8 bg-white flex-1 w-full space-y-12"
       >
         <!-- TOP ROW: Line Chart & Pie Chart -->
@@ -291,7 +291,7 @@
 
       <!-- TARGET VIEW: 2 Charts Side-by-Side -->
       <div
-        v-show="viewMode === 'target' && dashboardData && hasActualData"
+        v-show="viewMode === 'target' && dashboardData && hasActualData && !isProcessing"
         class="p-6 grid grid-cols-1 lg:grid-cols-2 gap-8 bg-white flex-1 w-full"
       >
         <!-- Revenue Achievement -->
@@ -348,14 +348,14 @@
       <!-- Global Chart Spinner (Common for all modes) -->
       <transition name="fade-fast">
         <div
-          v-if="isProcessing && hasActualData"
-          class="absolute inset-0 bg-white/40 backdrop-blur-[1px] flex items-center justify-center z-10 rounded-xl pointer-events-none"
+          v-if="isProcessing || globalLoading"
+          class="absolute inset-0 bg-white/80 backdrop-blur-md flex items-center justify-center z-[40] rounded-2xl pointer-events-none"
         >
           <div
             class="flex flex-col items-center gap-3 bg-white px-6 py-4 rounded-2xl shadow-xl border border-gray-100"
           >
             <div
-              class="w-8 h-8 border-3 border-blue-100 border-t-blue-500 rounded-full animate-spin"
+              class="w-10 h-10 border-4 border-blue-100 border-t-blue-600 rounded-full animate-spin"
             ></div>
             <span
               class="text-[11px] font-black text-blue-600 uppercase tracking-[0.2em]"
@@ -367,7 +367,7 @@
 
       <!-- Empty State -->
       <EmptyData
-        v-if="dashboardData && !hasActualData"
+        v-if="dashboardData && !hasActualData && !isProcessing"
         class="absolute inset-0 z-20 bg-gray-50/50"
       />
     </div>
@@ -582,12 +582,14 @@ const handleCompareRequest = (config) => {
   }
   nextTick(async () => {
     suppressFetch.value = false;
+    isProcessing.value = true;
     await processData();
   });
 };
 
 const exitComparison = async () => {
   isComparisonMode.value = false;
+  isProcessing.value = true;
   await processData();
 };
 
@@ -1053,7 +1055,10 @@ watch(
     isComparisonMode,
   ],
   () => {
-    if (!suppressFetch.value) processData();
+    if (!suppressFetch.value) {
+      isProcessing.value = true;
+      processData();
+    }
   },
 );
 
