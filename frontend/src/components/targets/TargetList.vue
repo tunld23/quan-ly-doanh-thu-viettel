@@ -64,7 +64,9 @@ const onDelete = (target) => {
             class="compact-filter-select max-w-[130px]"
           >
             <option value="all">Tất cả Nhóm</option>
-            <option v-for="gp in uniqueGroupsInList" :key="gp" :value="gp">{{ gp }}</option>
+            <option v-for="gp in uniqueGroupsInList" :key="gp" :value="gp">
+              {{ (gp === "Internet truyền hình" || gp === "Internet Truyền hình") ? "Internet" : gp }}
+            </option>
           </select>
         </div>
       </div>
@@ -104,7 +106,9 @@ const onDelete = (target) => {
               </span>
             </td>
             <td class="px-6 py-4 text-xs font-bold text-gray-500 tabular-nums">{{ t.tr_month }}/{{ t.tr_year }}</td>
-            <td class="px-6 py-4 text-xs font-black text-gray-700">{{ t.product_group }}</td>
+            <td class="px-6 py-4 text-xs font-black text-gray-700">
+              {{ (t.product_group === "Internet truyền hình" || t.product_group === "Internet Truyền hình") ? "Internet" : t.product_group }}
+            </td>
             <td class="px-6 py-4 text-right text-sm font-black text-gray-900 tabular-nums">
               {{ t.amount.toLocaleString("vi-VN") }}
               <span class="text-[9px] text-gray-400 font-normal ml-0.5 uppercase tracking-tighter">

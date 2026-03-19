@@ -112,7 +112,9 @@ const onSubmit = () => {
       <div class="relative">
         <select v-model="form.product_group" class="input-modern-sm">
           <option value="" disabled>-- Chọn nhóm --</option>
-          <option v-for="pg in productGroups" :key="pg" :value="pg">{{ pg }}</option>
+          <option v-for="pg in productGroups" :key="pg" :value="pg">
+            {{ (pg === "Internet truyền hình" || pg === "Internet Truyền hình") ? "Internet" : pg }}
+          </option>
         </select>
       </div>
     </div>

@@ -208,7 +208,7 @@ export function aggregateChartData(filteredData, allData, filters, metricField) 
  * Aggregate data by category and month for line chart, pie chart and table
  */
 export function aggregateCategoryData(allData, filters, metricField) {
-  const { year } = filters;
+  const { year, month, quarter, mode } = filters;
   const targetYear = year ? parseInt(year) : NaN;
   const isAllYears = isNaN(targetYear);
 
@@ -217,8 +217,16 @@ export function aggregateCategoryData(allData, filters, metricField) {
   const foundCategories = new Set();
 
   allData.forEach(item => {
-    // If a specific year is selected, skip other years
+    // a. Filter by Year
     if (!isAllYears && parseInt(item.nam) !== targetYear) return;
+    
+    // b. Filter by Month/Quarter
+    const itemMonth = parseInt(item.thang);
+    if (mode === "month" && month && itemMonth !== parseInt(month)) return;
+    if (mode === "quarter" && quarter) {
+      const itemQuarter = Math.ceil(itemMonth / 3);
+      if (String(itemQuarter) !== String(quarter)) return;
+    }
     
     // Normalize Category Name (CRITICAL: Remove newlines which appear in DB)
     let cat = (item.product_group || "Khác").toString().replace(/[\r\n\t]+/g, " ").trim();
@@ -229,14 +237,21 @@ export function aggregateCategoryData(allData, filters, metricField) {
       dataMap.set(cat, new Array(13).fill(0));
     }
     
-    const month = parseInt(item.thang);
-    if (month >= 1 && month <= 12) {
-      dataMap.get(cat)[month] += (Number(item[metricField]) || 0);
+    if (itemMonth >= 1 && itemMonth <= 12) {
+      dataMap.get(cat)[itemMonth] += (Number(item[metricField]) || 0);
     }
   });
 
   const categories = Array.from(foundCategories).sort();
-  const months = Array.from({ length: 12 }, (_, i) => i + 1);
+  
+  // 2. Filter available months for the series/labels if a time filter is active
+  let months = Array.from({ length: 12 }, (_, i) => i + 1);
+  if (mode === "month" && month) {
+    months = [parseInt(month)];
+  } else if (mode === "quarter" && quarter) {
+    const q = parseInt(quarter);
+    months = [(q - 1) * 3 + 1, (q - 1) * 3 + 2, (q - 1) * 3 + 3];
+  }
   const series = [];
   const pieData = [];
 

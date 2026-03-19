@@ -55,7 +55,7 @@ export function useDashboard() {
       const rename = (name) => 
         (name === "Internet truyền hình" || name === "Internet Truyền hình") ? "Internet" : name;
       if (response.productGroups) {
-        productGroups.value = response.productGroups.map(rename);
+        productGroups.value = response.productGroups;
       }
       
       if (response.availableYears) availableYearsFromDb.value = response.availableYears;

@@ -139,7 +139,9 @@ const defaultRule = [
           </label>
           <select v-model="selectedType" class="input-modern">
             <option value="" disabled>-- Chọn nhóm sản phẩm --</option>
-            <option v-for="group in productGroups" :key="group" :value="group">{{ group }}</option>
+            <option v-for="group in productGroups" :key="group" :value="group">
+              {{ (group === 'Internet truyền hình' || group === 'Internet Truyền hình') ? 'Internet' : group }}
+            </option>
           </select>
 
           <!-- Rules Display -->

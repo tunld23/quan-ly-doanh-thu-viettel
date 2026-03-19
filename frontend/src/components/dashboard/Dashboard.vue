@@ -1,5 +1,7 @@
 <template>
-  <div class="relative max-w-full mx-auto font-sans text-gray-700 sm:p-6 lg:p-8">
+  <div
+    class="relative max-w-full mx-auto font-sans text-gray-700 sm:p-6 lg:p-8"
+  >
     <LoadingOverlay :show="globalLoading" :status-text="loadingStatusText" />
 
     <!-- Filters Section -->
@@ -24,21 +26,36 @@
     <CompareModal
       v-model:show="showCompareModal"
       :current-mode="filterMode"
-      :current-value="filterMode === 'quarter' ? selectedQuarter : selectedMonth"
+      :current-value="
+        filterMode === 'quarter' ? selectedQuarter : selectedMonth
+      "
       @compare="handleCompareRequest"
     />
 
     <!-- Main Chart & Ranking Card -->
-    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden mb-6 min-h-[520px] flex flex-col relative">
+    <div
+      class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden mb-6 min-h-[520px] flex flex-col relative"
+    >
       <!-- ACTUAL VIEW: Chart + Ranking + Table -->
-      <div v-show="viewMode === 'actual' && dashboardData && hasActualData" class="p-8 bg-white flex-1 w-full space-y-12">
+      <div
+        v-show="viewMode === 'actual' && dashboardData && hasActualData"
+        class="p-8 bg-white flex-1 w-full space-y-12"
+      >
         <!-- TOP ROW: Line Chart & Pie Chart -->
         <div class="grid grid-cols-1 lg:grid-cols-12 gap-10">
-          <div class="lg:col-span-8 relative bg-gray-50/20 p-6 rounded-3xl border border-gray-100/50">
-            <h3 class="text-[18px] text-gray-800 mb-6 font-black flex items-center justify-between">
+          <div
+            class="lg:col-span-8 relative bg-gray-50/20 p-6 rounded-3xl border border-gray-100/50"
+          >
+            <h3
+              class="text-[18px] text-gray-800 mb-6 font-black flex items-center justify-between"
+            >
               <div class="flex items-center gap-3">
                 <div class="w-1.5 h-6 bg-blue-600 rounded-full"></div>
-                {{ isComparisonMode ? "So sánh xu hướng qua các năm" : "Diễn biến Doanh Thu theo Danh mục" }}
+                {{
+                  isComparisonMode
+                    ? `So sánh xu hướng ${activeMetric === "serviceCount" ? "số lượng" : "doanh thu"} qua các năm`
+                    : `${activeMetric === "serviceCount" ? "Số lượng" : "Doanh Thu"} `
+                }}
               </div>
 
               <button
@@ -55,10 +72,18 @@
           </div>
 
           <div class="lg:col-span-4">
-            <div class="bg-gray-50/50 p-6 rounded-3xl border border-gray-100 h-full flex flex-col">
-              <h4 class="text-[14px] font-black text-gray-700 mb-6 uppercase tracking-wider flex items-center gap-2">
+            <div
+              class="bg-gray-50/50 p-5 rounded-3xl border border-gray-100 h-full flex flex-col"
+            >
+              <h4
+                class="text-[14px] font-black text-gray-700 mb-6 uppercase tracking-wider flex items-center gap-2"
+              >
                 <div class="w-1.5 h-4 bg-indigo-500 rounded-full"></div>
-                Cơ cấu Doanh Thu {{ selectedYear ? '(Năm ' + selectedYear + ')' : '(Tổng cộng)' }}
+                Cơ cấu
+                {{ activeMetric === "serviceCount" ? "Số lượng" : "Doanh Thu" }}
+                {{
+                  selectedYear ? "(Năm " + selectedYear + ")" : "(Tổng cộng)"
+                }}
               </h4>
               <div class="relative w-full flex-1 min-h-[420px]">
                 <div ref="pieChartRef" class="w-full h-full"></div>
@@ -68,49 +93,109 @@
         </div>
 
         <!-- BOTTOM ROW: Table & Ranking -->
-        <div class="grid grid-cols-1 lg:grid-cols-12 gap-10 pt-10 border-t border-gray-100">
+        <div
+          class="grid grid-cols-1 lg:grid-cols-12 gap-10 pt-10 border-t border-gray-100"
+        >
           <div class="lg:col-span-8 space-y-6">
-             <div class="flex items-center justify-between">
-               <h3 class="text-[18px] text-gray-800 font-black flex items-center gap-3">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M3 10h18M3 14h18m-9-4v8m-7 0h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+            <div class="flex items-center justify-between">
+              <h3
+                class="text-[18px] text-gray-800 font-black flex items-center gap-3"
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  class="h-6 w-6 text-emerald-500"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2.5"
+                    d="M3 10h18M3 14h18m-9-4v8m-7 0h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"
+                  />
                 </svg>
                 Chi tiết dữ liệu theo sản phẩm
               </h3>
-              <div class="text-[11px] font-bold text-gray-400 bg-gray-50 px-3 py-1 rounded-full border border-gray-100">
-                Đơn vị: {{ activeMetric === 'serviceCount' ? 'Số lượng' : 'VNĐ' }}
+              <div
+                class="text-[11px] font-bold text-gray-400 bg-gray-50 px-3 py-1 rounded-full border border-gray-100"
+              >
+                Đơn vị:
+                {{ activeMetric === "serviceCount" ? "Số lượng" : "VNĐ" }}
               </div>
-             </div>
-            
-            <div class="overflow-x-auto rounded-3xl border border-gray-100 shadow-xl shadow-gray-100/50 max-h-[600px] custom-scrollbar">
+            </div>
+
+            <div
+              class="overflow-x-auto rounded-3xl border border-gray-100 shadow-xl shadow-gray-100/50 max-h-[600px] custom-scrollbar"
+            >
               <table class="w-full text-left border-separate border-spacing-0">
                 <thead class="sticky top-0 z-20">
                   <tr class="bg-gray-50/90 backdrop-blur-md">
-                    <th class="p-4 text-[11px] font-black text-gray-500 uppercase tracking-widest border-b border-gray-100 sticky left-0 bg-gray-50 z-30">Tháng</th>
-                    <th v-for="cat in (categoryData?.categories || [])" :key="cat" class="p-4 text-[11px] font-black text-gray-700 uppercase tracking-widest border-b border-gray-100 text-right min-w-[120px]">
+                    <th
+                      class="p-2 text-[10px] font-black text-gray-500 uppercase tracking-widest border-b border-gray-100 sticky left-0 bg-gray-50 z-30"
+                    >
+                      Tháng
+                    </th>
+                    <th
+                      v-for="cat in categoryData?.categories || []"
+                      :key="cat"
+                      class="p-2 text-[9px] font-black text-gray-700 uppercase tracking-widest border-b border-gray-100 text-right min-w-[70px] max-w-[110px] truncate"
+                      :title="cat"
+                    >
                       {{ cat }}
                     </th>
-                    <th class="p-4 text-[11px] font-black text-blue-700 uppercase tracking-widest border-b border-gray-200 text-right bg-blue-50/50 sticky right-0 z-30 shadow-[-4px_0_8px_rgba(0,0,0,0.02)]">Tổng tháng</th>
+                    <th
+                      class="p-2 text-[10px] font-black text-blue-700 uppercase tracking-widest border-b border-gray-200 text-right bg-[#f8fafc] sticky right-0 z-30 shadow-[-6px_0_12px_rgba(0,0,0,0.05)] min-w-[100px]"
+                    >
+                      Tổng tháng
+                    </th>
                   </tr>
                 </thead>
                 <tbody class="divide-y divide-gray-50 bg-white">
-                  <tr v-for="(month, idx) in (categoryData?.months || [])" :key="month" class="hover:bg-blue-50/30 transition-all group">
-                    <td class="p-4 text-[13px] font-black text-gray-600 border-r border-gray-50 sticky left-0 bg-inherit z-10">{{ month }}</td>
-                    <td v-for="catSeries in (categoryData?.series || [])" :key="catSeries.name" class="p-4 text-[13px] font-bold text-gray-700 text-right font-mono tracking-tight">
+                  <tr
+                    v-for="(month, idx) in categoryData?.months || []"
+                    :key="month"
+                    class="hover:bg-blue-50/30 transition-all group"
+                  >
+                    <td
+                      class="p-2 text-[12px] font-black text-gray-600 border-r border-gray-50 sticky left-0 bg-white z-10"
+                    >
+                      {{ month }}
+                    </td>
+                    <td
+                      v-for="catSeries in categoryData?.series || []"
+                      :key="catSeries.name"
+                      class="p-2 text-[12px] font-bold text-gray-700 text-right font-mono tracking-tight"
+                    >
                       {{ formatValue(catSeries.data[idx]) }}
                     </td>
-                    <td class="p-4 text-[13px] font-black text-blue-800 text-right bg-blue-50/20 sticky right-0 z-10 font-mono shadow-[-4px_0_8px_rgba(0,0,0,0.02)] group-hover:bg-blue-100/30">
+                    <td
+                      class="p-2 text-[12px] font-black text-blue-800 text-right bg-blue-50 sticky right-0 z-10 font-mono shadow-[-6px_0_12px_rgba(0,0,0,0.05)] group-hover:bg-blue-100/30"
+                    >
                       {{ formatValue(calculateMonthTotal(idx)) }}
                     </td>
                   </tr>
                 </tbody>
                 <tfoot class="sticky bottom-0 z-20">
-                  <tr class="bg-slate-900 text-white shadow-[0_-4px_12px_rgba(0,0,0,0.1)]">
-                    <td class="p-5 text-[12px] font-black uppercase tracking-widest sticky left-0 bg-slate-900 z-10 border-r border-slate-800 rounded-bl-3xl">TỔNG NĂM</td>
-                    <td v-for="catSeries in (categoryData?.series || [])" :key="catSeries.name" class="p-5 text-[14px] text-right font-mono font-black text-blue-300">
+                  <tr
+                    class="bg-slate-900 text-white shadow-[0_-4px_12px_rgba(0,0,0,0.1)]"
+                  >
+                    <td
+                      class="p-3 text-[11px] font-black uppercase tracking-widest sticky left-0 bg-slate-900 z-10 border-r border-slate-800 rounded-bl-3xl"
+                    >
+                      TỔNG NĂM
+                    </td>
+                    <td
+                      v-for="catSeries in categoryData?.series || []"
+                      :key="catSeries.name"
+                      class="p-3 text-[12px] text-right font-mono font-black text-blue-300 max-w-[110px] truncate"
+                      :title="catSeries.name"
+                    >
                       {{ formatValue(calculateCategoryTotal(catSeries.data)) }}
                     </td>
-                    <td class="p-5 text-[15px] text-right bg-blue-600 font-mono font-black sticky right-0 z-10 shadow-[-4px_0_12px_rgba(0,0,0,0.2)] rounded-br-3xl">
+                    <td
+                      class="p-3 text-[13px] text-right bg-blue-600 font-mono font-black sticky right-0 z-10 shadow-[-4px_0_12px_rgba(0,0,0,0.2)] rounded-br-3xl"
+                    >
                       {{ formatValue(calculateGrandTotal()) }}
                     </td>
                   </tr>
@@ -120,7 +205,7 @@
           </div>
 
           <div class="lg:col-span-4">
-             <StaffRanking
+            <StaffRanking
               :rankings="rankings"
               :is-comparison-mode="isComparisonMode"
             />
@@ -129,38 +214,77 @@
       </div>
 
       <!-- TARGET VIEW: 2 Charts Side-by-Side -->
-      <div v-show="viewMode === 'target' && dashboardData && hasActualData" class="p-6 grid grid-cols-1 lg:grid-cols-2 gap-8 bg-white flex-1 w-full">
+      <div
+        v-show="viewMode === 'target' && dashboardData && hasActualData"
+        class="p-6 grid grid-cols-1 lg:grid-cols-2 gap-8 bg-white flex-1 w-full"
+      >
         <!-- Revenue Achievement -->
-        <div class="relative bg-gray-50/30 p-4 rounded-2xl border border-gray-100 flex flex-col">
-          <h3 class="text-[14px] font-black text-gray-700 mb-6 uppercase tracking-wider flex items-center gap-2">
+        <div
+          class="relative bg-gray-50/30 p-4 rounded-2xl border border-gray-100 flex flex-col"
+        >
+          <h3
+            class="text-[14px] font-black text-gray-700 mb-6 uppercase tracking-wider flex items-center gap-2"
+          >
             <div class="w-1.5 h-4 bg-indigo-500 rounded-full"></div>
             Tỷ lệ hoàn thành theo Doanh Thu
           </h3>
           <div class="relative w-full flex-1 min-h-[380px]">
-            <div v-show="hasRevenueTargetData" ref="revChartRef" class="w-full h-full"></div>
-            <EmptyData v-if="!hasRevenueTargetData" title="Không có dữ liệu DT" message="Chưa có thông tin chỉ tiêu hoặc doanh thu cho mục này." class="scale-75" />
+            <div
+              v-show="hasRevenueTargetData"
+              ref="revChartRef"
+              class="w-full h-full"
+            ></div>
+            <EmptyData
+              v-if="!hasRevenueTargetData"
+              title="Không có dữ liệu DT"
+              message="Chưa có thông tin chỉ tiêu hoặc doanh thu cho mục này."
+              class="scale-75"
+            />
           </div>
         </div>
 
         <!-- Subscribers Achievement -->
-        <div class="relative bg-gray-50/30 p-4 rounded-2xl border border-gray-100 flex flex-col">
-          <h3 class="text-[14px] font-black text-gray-700 mb-6 uppercase tracking-wider flex items-center gap-2">
+        <div
+          class="relative bg-gray-50/30 p-4 rounded-2xl border border-gray-100 flex flex-col"
+        >
+          <h3
+            class="text-[14px] font-black text-gray-700 mb-6 uppercase tracking-wider flex items-center gap-2"
+          >
             <div class="w-1.5 h-4 bg-emerald-500 rounded-full"></div>
             Tỷ lệ hoàn thành theo Thuê Bao
           </h3>
           <div class="relative w-full flex-1 min-h-[380px]">
-            <div v-show="hasSubTargetData" ref="subChartRef" class="w-full h-full"></div>
-            <EmptyData v-if="!hasSubTargetData" title="Không có dữ liệu TB" message="Chưa có thông tin chỉ tiêu hoặc thuê bao cho mục này." class="scale-75" />
+            <div
+              v-show="hasSubTargetData"
+              ref="subChartRef"
+              class="w-full h-full"
+            ></div>
+            <EmptyData
+              v-if="!hasSubTargetData"
+              title="Không có dữ liệu TB"
+              message="Chưa có thông tin chỉ tiêu hoặc thuê bao cho mục này."
+              class="scale-75"
+            />
           </div>
         </div>
       </div>
 
       <!-- Global Chart Spinner (Common for all modes) -->
       <transition name="fade-fast">
-        <div v-if="isProcessing && hasActualData" class="absolute inset-0 bg-white/40 backdrop-blur-[1px] flex items-center justify-center z-10 rounded-xl pointer-events-none">
-          <div class="flex flex-col items-center gap-3 bg-white px-6 py-4 rounded-2xl shadow-xl border border-gray-100">
-            <div class="w-8 h-8 border-3 border-blue-100 border-t-blue-500 rounded-full animate-spin"></div>
-            <span class="text-[11px] font-black text-blue-600 uppercase tracking-[0.2em]">Đang xử lý...</span>
+        <div
+          v-if="isProcessing && hasActualData"
+          class="absolute inset-0 bg-white/40 backdrop-blur-[1px] flex items-center justify-center z-10 rounded-xl pointer-events-none"
+        >
+          <div
+            class="flex flex-col items-center gap-3 bg-white px-6 py-4 rounded-2xl shadow-xl border border-gray-100"
+          >
+            <div
+              class="w-8 h-8 border-3 border-blue-100 border-t-blue-500 rounded-full animate-spin"
+            ></div>
+            <span
+              class="text-[11px] font-black text-blue-600 uppercase tracking-[0.2em]"
+              >Đang xử lý...</span
+            >
           </div>
         </div>
       </transition>
@@ -175,17 +299,25 @@
 </template>
 
 <script setup>
-import { ref, onMounted, shallowRef, watch, nextTick, computed } from "vue";
+import {
+  ref,
+  onMounted,
+  onUnmounted,
+  shallowRef,
+  watch,
+  nextTick,
+  computed,
+} from "vue";
 import * as echarts from "echarts";
 
 // Composables & Helpers
 import { useDashboard } from "../../composables/useDashboard";
-import { 
-  getBaseChartOption, 
-  getUpdateOption, 
+import {
+  getBaseChartOption,
+  getUpdateOption,
   getComparisonOption,
   getCategoryLineOption,
-  getCategoryPieOption
+  getCategoryPieOption,
 } from "../../utils/chartConfig";
 
 // Components
@@ -198,7 +330,7 @@ import CompareModal from "./CompareModal.vue";
 // --- CONFIG ---
 const metrics = [
   { id: "withoutVat", name: "Doanh thu (Chưa VAT)" },
-  { id: "serviceCount", name: "Số lượng" }
+  { id: "serviceCount", name: "Số lượng" },
 ];
 
 // --- STATE ---
@@ -241,20 +373,24 @@ const hasRevenueTargetData = computed(() => {
   if (!dashboardData.value?.targetAchievement) return false;
   const data = dashboardData.value.targetAchievement;
   const years = data.years || [];
-  return years.some(y => (data.yearsData[y]?.revenueRates || []).some(v => v > 0));
+  return years.some((y) =>
+    (data.yearsData[y]?.revenueRates || []).some((v) => v > 0),
+  );
 });
 
 const hasSubTargetData = computed(() => {
   if (!dashboardData.value?.targetAchievement) return false;
   const data = dashboardData.value.targetAchievement;
   const years = data.years || [];
-  return years.some(y => (data.yearsData[y]?.subRates || []).some(v => v > 0));
+  return years.some((y) =>
+    (data.yearsData[y]?.subRates || []).some((v) => v > 0),
+  );
 });
 
 const hasActualData = computed(() => {
   if (!dashboardData.value) return false;
-  
-  if (viewMode.value === 'target') {
+
+  if (viewMode.value === "target") {
     return hasRevenueTargetData.value || hasSubTargetData.value;
   }
 
@@ -263,11 +399,11 @@ const hasActualData = computed(() => {
   if (isComparisonMode.value) {
     const comp = dashboardData.value.comparisonData[m];
     if (!comp || !comp.years || comp.years.length === 0) return false;
-    return comp.years.some(y => (comp.yearData[y] || []).some(v => v > 0));
+    return comp.years.some((y) => (comp.yearData[y] || []).some((v) => v > 0));
   }
-  
+
   const catData = dashboardData.value.categoryData?.[m];
-  return !!(catData && catData.series?.some(s => s.data.some(v => v > 0)));
+  return !!(catData && catData.series?.some((s) => s.data.some((v) => v > 0)));
 });
 
 const categoryData = computed(() => {
@@ -278,10 +414,16 @@ const categoryData = computed(() => {
 // --- METHODS ---
 
 const initCharts = () => {
-  if (viewMode.value === 'actual') {
+  if (viewMode.value === "actual") {
     // Dispose target charts if switching to actual
-    if (revChartInstance.value) { revChartInstance.value.dispose(); revChartInstance.value = null; }
-    if (subChartInstance.value) { subChartInstance.value.dispose(); subChartInstance.value = null; }
+    if (revChartInstance.value) {
+      revChartInstance.value.dispose();
+      revChartInstance.value = null;
+    }
+    if (subChartInstance.value) {
+      subChartInstance.value.dispose();
+      subChartInstance.value = null;
+    }
 
     if (chartRef.value && !chartInstance.value) {
       chartInstance.value = echarts.init(chartRef.value);
@@ -291,8 +433,14 @@ const initCharts = () => {
     }
   } else {
     // Dispose actual chart if switching to target
-    if (chartInstance.value) { chartInstance.value.dispose(); chartInstance.value = null; }
-    if (pieChartInstance.value) { pieChartInstance.value.dispose(); pieChartInstance.value = null; }
+    if (chartInstance.value) {
+      chartInstance.value.dispose();
+      chartInstance.value = null;
+    }
+    if (pieChartInstance.value) {
+      pieChartInstance.value.dispose();
+      pieChartInstance.value = null;
+    }
 
     if (revChartRef.value && !revChartInstance.value) {
       revChartInstance.value = echarts.init(revChartRef.value);
@@ -301,13 +449,6 @@ const initCharts = () => {
       subChartInstance.value = echarts.init(subChartRef.value);
     }
   }
-  
-  window.addEventListener("resize", () => {
-    chartInstance.value?.resize();
-    pieChartInstance.value?.resize();
-    revChartInstance.value?.resize();
-    subChartInstance.value?.resize();
-  });
 };
 
 const handleCompareRequest = (config) => {
@@ -341,10 +482,10 @@ const processData = async () => {
       updateUI();
       if (hasActualData.value) {
         setTimeout(() => {
-            chartInstance.value?.resize();
-            pieChartInstance.value?.resize();
-            revChartInstance.value?.resize();
-            subChartInstance.value?.resize();
+          chartInstance.value?.resize();
+          pieChartInstance.value?.resize();
+          revChartInstance.value?.resize();
+          subChartInstance.value?.resize();
         }, 100);
       }
     }
@@ -356,7 +497,7 @@ const processData = async () => {
 const updateUI = () => {
   if (!dashboardData.value) return;
 
-  if (viewMode.value === 'target') {
+  if (viewMode.value === "target") {
     renderTargetCharts();
     return;
   }
@@ -368,16 +509,25 @@ const updateUI = () => {
   if (isComparisonMode.value) {
     const configData = dashboardData.value.comparisonData[activeMetric.value];
     if (configData && chartInstance.value) {
-      chartInstance.value.setOption(getComparisonOption(configData, metricName, activeMetric.value), true);
+      chartInstance.value.setOption(
+        getComparisonOption(configData, metricName, activeMetric.value),
+        true,
+      );
     }
   } else {
     const catData = dashboardData.value.categoryData?.[activeMetric.value];
     if (catData) {
       if (chartInstance.value) {
-        chartInstance.value.setOption(getCategoryLineOption(catData, metricName, activeMetric.value), true);
+        chartInstance.value.setOption(
+          getCategoryLineOption(catData, metricName, activeMetric.value),
+          true,
+        );
       }
       if (pieChartInstance.value) {
-        pieChartInstance.value.setOption(getCategoryPieOption(catData.pieData, metricName, activeMetric.value), true);
+        pieChartInstance.value.setOption(
+          getCategoryPieOption(catData.pieData, metricName, activeMetric.value),
+          true,
+        );
       }
     }
   }
@@ -386,7 +536,7 @@ const updateUI = () => {
 const formatValue = (val) => {
   if (val === undefined || val === null) return "0";
   if (activeMetric.value === "serviceCount") return val.toLocaleString("vi-VN");
-  
+
   if (val >= 1000000000) return (val / 1000000000).toFixed(2) + " tỷ";
   if (val >= 1000000) return (val / 1000000).toFixed(1) + " tr";
   return val.toLocaleString("vi-VN");
@@ -394,7 +544,10 @@ const formatValue = (val) => {
 
 const calculateMonthTotal = (monthIdx) => {
   if (!categoryData.value) return 0;
-  return categoryData.value.series.reduce((sum, s) => sum + (s.data[monthIdx] || 0), 0);
+  return categoryData.value.series.reduce(
+    (sum, s) => sum + (s.data[monthIdx] || 0),
+    0,
+  );
 };
 
 const calculateCategoryTotal = (records) => {
@@ -403,7 +556,10 @@ const calculateCategoryTotal = (records) => {
 
 const calculateGrandTotal = () => {
   if (!categoryData.value) return 0;
-  return categoryData.value.series.reduce((sum, s) => sum + calculateCategoryTotal(s.data), 0);
+  return categoryData.value.series.reduce(
+    (sum, s) => sum + calculateCategoryTotal(s.data),
+    0,
+  );
 };
 
 const renderTargetCharts = () => {
@@ -412,39 +568,45 @@ const renderTargetCharts = () => {
   const years = data.years || [];
 
   const formatValue = (val, type) => {
-    if (type === 'revenueRates' || type === 'subRates') return `${val}%`;
-    if (val >= 1000000000) return (val / 1000000000).toFixed(2) + ' tỷ';
-    if (val >= 1000000) return (val / 1000000).toFixed(1) + ' tr';
-    return new Intl.NumberFormat('vi-VN').format(val);
+    if (type === "revenueRates" || type === "subRates") return `${val}%`;
+    if (val >= 1000000000) return (val / 1000000000).toFixed(2) + " tỷ";
+    if (val >= 1000000) return (val / 1000000).toFixed(1) + " tr";
+    return new Intl.NumberFormat("vi-VN").format(val);
   };
 
   const createOption = (title, metricType) => {
-    const detailType = metricType === 'revenueRates' ? 'revenueDetails' : 'subDetails';
+    const detailType =
+      metricType === "revenueRates" ? "revenueDetails" : "subDetails";
     const yearColors = [
-      ['#6366f1', '#4f46e5'], ['#ec4899', '#db2777'], ['#f59e0b', '#d97706'], ['#10b981', '#059669'], ['#06b6d4', '#0891b2'],
+      ["#6366f1", "#4f46e5"],
+      ["#ec4899", "#db2777"],
+      ["#f59e0b", "#d97706"],
+      ["#10b981", "#059669"],
+      ["#06b6d4", "#0891b2"],
     ];
 
     const series = years.map((y, idx) => {
       const yearRates = data.yearsData[y]?.[metricType] || [];
       const colors = yearColors[idx % yearColors.length];
-      
+
       return {
         name: `Năm ${y}`,
-        type: 'bar',
-        barGap: '15%',
-        barCategoryGap: '30%',
-        data: yearRates.map(val => {
+        type: "bar",
+        barGap: "15%",
+        barCategoryGap: "30%",
+        data: yearRates.map((val) => {
           if (years.length === 1) {
-            let statusColor = ['#ef4444', '#b91c1c']; 
-            if (val >= 100) statusColor = ['#10b981', '#059669'];
-            else if (val >= 80) statusColor = ['#f59e0b', '#d97706'];
+            let statusColor = ["#ef4444", "#b91c1c"];
+            if (val >= 100) statusColor = ["#10b981", "#059669"];
+            else if (val >= 80) statusColor = ["#f59e0b", "#d97706"];
             return {
               value: val,
               itemStyle: {
                 color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-                  { offset: 0, color: statusColor[0] }, { offset: 1, color: statusColor[1] }
-                ])
-              }
+                  { offset: 0, color: statusColor[0] },
+                  { offset: 1, color: statusColor[1] },
+                ]),
+              },
             };
           }
           return val;
@@ -452,54 +614,87 @@ const renderTargetCharts = () => {
         itemStyle: {
           borderRadius: [4, 4, 0, 0],
           color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-            { offset: 0, color: colors[0] }, { offset: 1, color: colors[1] }
-          ])
+            { offset: 0, color: colors[0] },
+            { offset: 1, color: colors[1] },
+          ]),
         },
-        emphasis: { itemStyle: { shadowBlur: 10, shadowColor: 'rgba(0,0,0,0.2)' } },
-        markLine: idx === 0 ? {
-          silent: true, symbol: 'none',
-          label: {
-            show: true, position: 'end', formatter: 'Đích 100%', fontSize: 9, fontWeight: 'bold',
-            color: '#059669', backgroundColor: 'rgba(255,255,255,0.9)', padding: [2, 4], borderRadius: 4
-          },
-          lineStyle: { type: 'dashed', color: '#10b981', width: 2, opacity: 0.6 },
-          data: [{ yAxis: 100 }]
-        } : undefined,
+        emphasis: {
+          itemStyle: { shadowBlur: 10, shadowColor: "rgba(0,0,0,0.2)" },
+        },
+        markLine:
+          idx === 0
+            ? {
+                silent: true,
+                symbol: "none",
+                label: {
+                  show: true,
+                  position: "end",
+                  formatter: "Đích 100%",
+                  fontSize: 9,
+                  fontWeight: "bold",
+                  color: "#059669",
+                  backgroundColor: "rgba(255,255,255,0.9)",
+                  padding: [2, 4],
+                  borderRadius: 4,
+                },
+                lineStyle: {
+                  type: "dashed",
+                  color: "#10b981",
+                  width: 2,
+                  opacity: 0.6,
+                },
+                data: [{ yAxis: 100 }],
+              }
+            : undefined,
         label: {
-          show: true, position: 'top', 
-          formatter: (p) => { 
-            const val = typeof p.value === 'object' ? p.value.value : p.value;
-            return val > 0 ? `${val}%` : '';
+          show: true,
+          position: "top",
+          formatter: (p) => {
+            const val = typeof p.value === "object" ? p.value.value : p.value;
+            return val > 0 ? `${val}%` : "";
           },
-          fontSize: 8, fontWeight: 'bold', color: '#64748b', distance: 2
-        }
+          fontSize: 8,
+          fontWeight: "bold",
+          color: "#64748b",
+          distance: 2,
+        },
       };
     });
 
     return {
-      tooltip: { 
-        trigger: 'axis', axisPointer: { type: 'shadow' },
-        backgroundColor: 'rgba(255, 255, 255, 0.98)', borderColor: '#eee', borderWidth: 1,
-        padding: [12, 16], extraCssText: 'shadow-xl rounded-xl border-0',
+      tooltip: {
+        trigger: "axis",
+        axisPointer: { type: "shadow" },
+        backgroundColor: "rgba(255, 255, 255, 0.98)",
+        borderColor: "#eee",
+        borderWidth: 1,
+        padding: [12, 16],
+        extraCssText: "shadow-xl rounded-xl border-0",
         formatter: (params) => {
-            const groupIdx = params[0].dataIndex;
-            let res = `<div class="mb-3 pb-2 border-b border-gray-100 flex items-center justify-between gap-6">
+          const groupIdx = params[0].dataIndex;
+          let res = `<div class="mb-3 pb-2 border-b border-gray-100 flex items-center justify-between gap-6">
                         <span class="text-sm font-black text-gray-800">${params[0].name}</span>
                         <span class="text-[10px] bg-blue-50 text-blue-600 px-2 py-0.5 rounded-full font-bold uppercase tracking-wider">${title}</span>
                        </div>`;
-            params.forEach((p, idx) => {
-                const year = years[idx];
-                const val = typeof p.value === 'object' ? p.value.value : p.value;
-                const details = data.yearsData[year]?.[detailType]?.[groupIdx] || { actual: 0, target: 0 };
-                const emoji = val >= 100 ? '✅' : val >= 80 ? '⚠️' : '❌';
-                let deltaHtml = '';
-                if (years.length > 1 && idx > 0) {
-                    const prevP = params[idx-1];
-                    const prevVal = typeof prevP.value === 'object' ? prevP.value.value : prevP.value;
-                    const diff = (val - prevVal).toFixed(1);
-                    deltaHtml = `<span class="text-[9px] ${diff >= 0 ? 'text-emerald-500' : 'text-red-500'} font-bold ml-1">${diff >= 0 ? '↑' : '↓'} ${Math.abs(diff)}%</span>`;
-                }
-                res += `<div class="mb-3 last:mb-0">
+          params.forEach((p, idx) => {
+            const year = years[idx];
+            const val = typeof p.value === "object" ? p.value.value : p.value;
+            const details = data.yearsData[year]?.[detailType]?.[groupIdx] || {
+              actual: 0,
+              target: 0,
+            };
+            const emoji = val >= 100 ? "✅" : val >= 80 ? "⚠️" : "❌";
+            let deltaHtml = "";
+            if (years.length > 1 && idx > 0) {
+              const prevP = params[idx - 1];
+              const prevVal =
+                typeof prevP.value === "object"
+                  ? prevP.value.value
+                  : prevP.value;
+              const diff = (val - prevVal).toFixed(1);
+              deltaHtml = `<span class="text-[9px] ${diff >= 0 ? "text-emerald-500" : "text-red-500"} font-bold ml-1">${diff >= 0 ? "↑" : "↓"} ${Math.abs(diff)}%</span>`;
+            }
+            res += `<div class="mb-3 last:mb-0">
                     <div class="flex items-center justify-between gap-8 mb-0.5">
                         <span class="flex items-center gap-2">
                             <span style="display:inline-block;width:10px;height:10px;border-radius:3px;background:${p.color}"></span>
@@ -516,52 +711,143 @@ const renderTargetCharts = () => {
                         <span>Mục tiêu: <span class="text-gray-600">${formatValue(details.target)}</span></span>
                     </div>
                 </div>`;
-            });
-            return res;
-        }
+          });
+          return res;
+        },
       },
-      legend: { show: years.length >= 1, top: 0, right: 10, itemWidth: 12, itemHeight: 12, textStyle: { fontSize: 11, fontWeight: 'bold', color: '#64748b' } },
-      dataZoom: data.labels.length > 4 ? [{ type: 'slider', show: true, bottom: 0, height: 18, fillerColor: 'rgba(99, 102, 241, 0.1)', handleStyle: { color: '#6366f1' }, textStyle: { show: false } }] : [],
-      grid: { top: '12%', left: '3%', right: '5%', bottom: data.labels.length > 4 ? '18%' : '15%', containLabel: true },
-      xAxis: { 
-          type: 'category', data: data.labels, 
-          axisLabel: { interval: 0, rotate: 35, fontSize: 10, fontWeight: 'bold', color: '#64748b', overflow: 'break' },
-          splitLine: { show: true, lineStyle: { color: '#f1f5f9', type: 'dashed' } }
+      legend: {
+        show: years.length >= 1,
+        top: 0,
+        right: 10,
+        itemWidth: 12,
+        itemHeight: 12,
+        textStyle: { fontSize: 11, fontWeight: "bold", color: "#64748b" },
       },
-      yAxis: { 
-        type: 'value', max: (v) => v.max > 120 ? v.max + 10 : 120,
-        axisLabel: { formatter: (v) => `${v.toFixed(0)}%`, color: '#94a3b8', fontSize: 10 },
-        splitLine: { lineStyle: { color: '#f1f5f9' } },
-        splitArea: { show: true, areaStyle: { color: ['rgba(241,245,249,0.3)', 'rgba(241,245,249,0)'] } }
+      dataZoom:
+        data.labels.length > 4
+          ? [
+              {
+                type: "slider",
+                show: true,
+                bottom: 0,
+                height: 18,
+                fillerColor: "rgba(99, 102, 241, 0.1)",
+                handleStyle: { color: "#6366f1" },
+                textStyle: { show: false },
+              },
+            ]
+          : [],
+      grid: {
+        top: "12%",
+        left: "3%",
+        right: "5%",
+        bottom: data.labels.length > 4 ? "18%" : "15%",
+        containLabel: true,
       },
-      series: series
+      xAxis: {
+        type: "category",
+        data: data.labels,
+        axisLabel: {
+          interval: 0,
+          rotate: 35,
+          fontSize: 10,
+          fontWeight: "bold",
+          color: "#64748b",
+          overflow: "break",
+        },
+        splitLine: {
+          show: true,
+          lineStyle: { color: "#f1f5f9", type: "dashed" },
+        },
+      },
+      yAxis: {
+        type: "value",
+        max: (v) => (v.max > 120 ? v.max + 10 : 120),
+        axisLabel: {
+          formatter: (v) => `${v.toFixed(0)}%`,
+          color: "#94a3b8",
+          fontSize: 10,
+        },
+        splitLine: { lineStyle: { color: "#f1f5f9" } },
+        splitArea: {
+          show: true,
+          areaStyle: {
+            color: ["rgba(241,245,249,0.3)", "rgba(241,245,249,0)"],
+          },
+        },
+      },
+      series: series,
     };
   };
 
-  if (revChartInstance.value) revChartInstance.value.setOption(createOption('Doanh Thu', 'revenueRates'), true);
-  if (subChartInstance.value) subChartInstance.value.setOption(createOption('Thuê Bao', 'subRates'), true);
+  if (revChartInstance.value)
+    revChartInstance.value.setOption(
+      createOption("Doanh Thu", "revenueRates"),
+      true,
+    );
+  if (subChartInstance.value)
+    subChartInstance.value.setOption(
+      createOption("Thuê Bao", "subRates"),
+      true,
+    );
 };
 
 // --- LIFECYCLE & WATCHERS ---
 
+let resizeObserver = null;
+const handleGlobalResize = () => {
+  chartInstance.value?.resize();
+  pieChartInstance.value?.resize();
+  revChartInstance.value?.resize();
+  subChartInstance.value?.resize();
+};
+
 onMounted(async () => {
   initCharts();
+
+  // Initialize ResizeObserver for all chart containers
+  resizeObserver = new ResizeObserver(handleGlobalResize);
+  [chartRef, pieChartRef, revChartRef, subChartRef].forEach((r) => {
+    if (r.value) resizeObserver.observe(r.value);
+  });
+
+  window.addEventListener("resize", handleGlobalResize);
+
   loadingStatusText.value = "Đang tải báo cáo...";
   await processData();
   globalLoading.value = false;
 });
 
+onUnmounted(() => {
+  if (resizeObserver) resizeObserver.disconnect();
+  window.removeEventListener("resize", handleGlobalResize);
+});
+
 watch(
-  [dataType, sourceType, selectedYear, selectedMonth, selectedQuarter, filterMode, viewMode],
+  [
+    dataType,
+    sourceType,
+    selectedYear,
+    selectedMonth,
+    selectedQuarter,
+    filterMode,
+    viewMode,
+  ],
   () => {
     if (!suppressFetch.value) processData();
-  }
+  },
 );
 
 watch(activeMetric, updateUI);
 </script>
 
 <style scoped>
-.fade-fast-enter-active, .fade-fast-leave-active { transition: opacity 0.3s ease; }
-.fade-fast-enter-from, .fade-fast-leave-to { opacity: 0; }
+.fade-fast-enter-active,
+.fade-fast-leave-active {
+  transition: opacity 0.3s ease;
+}
+.fade-fast-enter-from,
+.fade-fast-leave-to {
+  opacity: 0;
+}
 </style>

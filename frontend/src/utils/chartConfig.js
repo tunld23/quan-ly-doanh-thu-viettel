@@ -191,14 +191,31 @@ export const getComparisonOption = (data, metricName, metricId = "") => {
     const prevYear = displayYears[idx - 1];
     const prevValues = prevYear ? yearData[prevYear] : null;
 
+    const isSinglePoint = labels.length === 1;
     series.push({
       name: String(y),
-      type: "bar",
+      type: isSinglePoint ? "bar" : "line",
+      smooth: 0.4,
       barMaxWidth: 40,
-      data: values,
-      itemStyle: {
+      showSymbol: true,
+      symbol: 'circle',
+      symbolSize: 8,
+      itemStyle: { 
         color: colors[colorIdx],
-        borderRadius: [4, 4, 0, 0],
+        borderWidth: 2,
+        borderColor: '#fff',
+        borderRadius: isSinglePoint ? [4, 4, 0, 0] : 0
+      },
+      data: values,
+      lineStyle: { 
+        width: 4, 
+        cap: 'round', 
+        shadowBlur: 10,
+        shadowColor: 'rgba(0,0,0,0.1)',
+        shadowOffsetY: 5
+      },
+      areaStyle: {
+        opacity: 0.05,
       },
       label: {
         show: labels.length <= 6 && displayYears.length <= 3,
@@ -358,39 +375,44 @@ export const getCategoryLineOption = (data, metricName, metricId = "") => {
       },
       splitLine: { lineStyle: { color: '#f1f5f9', type: 'dashed' } }
     },
-    series: series.map((s, idx) => ({
-      name: s.name,
-      type: 'line',
-      smooth: false,
-      showSymbol: true,
-      symbol: 'circle',
-      symbolSize: 7,
-      itemStyle: { 
-        color: colors[idx % colors.length],
-        borderWidth: 2,
-        borderColor: '#fff'
-      },
-      data: s.data,
-      lineStyle: { 
-        width: 4, 
-        cap: 'round', 
-        shadowBlur: 10,
-        shadowColor: 'rgba(0,0,0,0.1)',
-        shadowOffsetY: 5
-      },
-      areaStyle: {
-        opacity: 0.1,
-        color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-          { offset: 0, color: colors[idx % colors.length] },
-          { offset: 1, color: 'rgba(255, 255, 255, 0)' }
-        ])
-      },
-      emphasis: { 
-        focus: 'series',
-        lineStyle: { width: 5 },
-        itemStyle: { scale: 1.5 }
-      }
-    }))
+    series: series.map((s, idx) => {
+      const isSinglePoint = months.length === 1;
+      return {
+        name: s.name,
+        type: isSinglePoint ? 'bar' : 'line',
+        smooth: 0.4,
+        barMaxWidth: 60,
+        showSymbol: true,
+        symbol: 'circle',
+        symbolSize: 7,
+        itemStyle: { 
+          color: colors[idx % colors.length],
+          borderWidth: 2,
+          borderColor: '#fff',
+          borderRadius: isSinglePoint ? [4, 4, 0, 0] : 0
+        },
+        data: s.data,
+        lineStyle: { 
+          width: 4, 
+          cap: 'round', 
+          shadowBlur: 10,
+          shadowColor: 'rgba(0,0,0,0.1)',
+          shadowOffsetY: 5
+        },
+        areaStyle: {
+          opacity: 0.1,
+          color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+            { offset: 0, color: colors[idx % colors.length] },
+            { offset: 1, color: 'rgba(255, 255, 255, 0)' }
+          ])
+        },
+        emphasis: { 
+          focus: 'series',
+          lineStyle: { width: 5 },
+          itemStyle: { scale: 1.5 }
+        }
+      };
+    })
   };
 };
 
