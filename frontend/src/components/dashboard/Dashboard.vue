@@ -18,7 +18,7 @@
       :available-months="availableMonths"
       :available-quarters="availableQuarters"
       :metrics="metrics"
-      :product-groups="productGroups"
+      :product-groups="visibleProductGroups"
       @open-compare="openCompare"
     />
 
@@ -44,7 +44,7 @@
         <!-- TOP ROW: Line Chart & Pie Chart -->
         <div class="grid grid-cols-1 lg:grid-cols-12 gap-10">
           <div
-            class="lg:col-span-8 relative bg-gray-50/20 p-6 rounded-3xl border border-gray-100/50"
+            class="lg:col-span-8 relative bg-gray-50/50 p-6 rounded-3xl border border-gray-100/50"
           >
             <h3
               class="text-[18px] text-gray-800 mb-6 font-black flex items-center justify-between"
@@ -79,10 +79,14 @@
                 class="text-[14px] font-black text-gray-700 mb-6 uppercase tracking-wider flex items-center gap-2"
               >
                 <div class="w-1.5 h-4 bg-indigo-500 rounded-full"></div>
-                Cơ cấu
+                {{ dataType === "all" ? "Cơ cấu" : "Tỷ trọng đóng góp" }}
                 {{ activeMetric === "serviceCount" ? "Số lượng" : "Doanh Thu" }}
                 {{
-                  selectedYear ? "(Năm " + selectedYear + ")" : "(Tổng cộng)"
+                  dataType === "all"
+                    ? selectedYear
+                      ? "(Năm " + selectedYear + ")"
+                      : "(Tổng cộng)"
+                    : "Theo Năm"
                 }}
               </h4>
               <div class="relative w-full flex-1 min-h-[420px]">
@@ -131,73 +135,145 @@
               <table class="w-full text-left border-separate border-spacing-0">
                 <thead class="sticky top-0 z-20">
                   <tr class="bg-gray-50/90 backdrop-blur-md">
-                    <th
-                      class="p-2 text-[10px] font-black text-gray-500 uppercase tracking-widest border-b border-gray-100 sticky left-0 bg-gray-50 z-30"
-                    >
-                      Tháng
-                    </th>
-                    <th
-                      v-for="cat in categoryData?.categories || []"
-                      :key="cat"
-                      class="p-2 text-[9px] font-black text-gray-700 uppercase tracking-widest border-b border-gray-100 text-right min-w-[70px] max-w-[110px] truncate"
-                      :title="cat"
-                    >
-                      {{ cat }}
-                    </th>
-                    <th
-                      class="p-2 text-[10px] font-black text-blue-700 uppercase tracking-widest border-b border-gray-200 text-right bg-[#f8fafc] sticky right-0 z-30 shadow-[-6px_0_12px_rgba(0,0,0,0.05)] min-w-[100px]"
-                    >
-                      Tổng tháng
-                    </th>
+                    <template v-if="dataType === 'all'">
+                      <th
+                        class="p-2 text-[10px] font-black text-gray-500 uppercase tracking-widest border-b border-gray-100 sticky left-0 bg-gray-50 z-30"
+                      >
+                        Tháng
+                      </th>
+                      <th
+                        v-for="cat in categoryData?.categories || []"
+                        :key="cat"
+                        class="p-2 text-[9px] font-black text-gray-700 uppercase tracking-widest border-b border-gray-100 text-right min-w-[70px] max-w-[110px] truncate"
+                        :title="cat"
+                      >
+                        {{ cat }}
+                      </th>
+                      <th
+                        class="p-2 text-[10px] font-black text-blue-700 uppercase tracking-widest border-b border-gray-200 text-right bg-[#f8fafc] sticky right-0 z-30 shadow-[-6px_0_12px_rgba(0,0,0,0.05)] min-w-[100px]"
+                      >
+                        Tổng tháng
+                      </th>
+                    </template>
+                    <template v-else>
+                      <th
+                        class="p-2 text-[10px] font-black text-gray-500 uppercase tracking-widest border-b border-gray-100 sticky left-0 bg-gray-50 z-30"
+                      >
+                        Năm
+                      </th>
+                      <th
+                        v-for="label in comparisonData?.labels || []"
+                        :key="label"
+                        class="p-2 text-[10px] font-black text-gray-700 uppercase tracking-widest border-b border-gray-100 text-right min-w-[60px]"
+                      >
+                        {{ label }}
+                      </th>
+                      <th
+                        class="p-2 text-[10px] font-black text-blue-700 uppercase tracking-widest border-b border-gray-200 text-right bg-[#f8fafc] sticky right-0 z-30 shadow-[-6px_0_12px_rgba(0,0,0,0.05)] min-w-[100px]"
+                      >
+                        Tổng năm
+                      </th>
+                    </template>
                   </tr>
                 </thead>
                 <tbody class="divide-y divide-gray-50 bg-white">
-                  <tr
-                    v-for="(month, idx) in categoryData?.months || []"
-                    :key="month"
-                    class="hover:bg-blue-50/30 transition-all group"
-                  >
-                    <td
-                      class="p-2 text-[12px] font-black text-gray-600 border-r border-gray-50 sticky left-0 bg-white z-10"
+                  <template v-if="dataType === 'all'">
+                    <tr
+                      v-for="(month, idx) in categoryData?.months || []"
+                      :key="month"
+                      class="hover:bg-blue-50/30 transition-all group"
                     >
-                      {{ month }}
-                    </td>
-                    <td
-                      v-for="catSeries in categoryData?.series || []"
-                      :key="catSeries.name"
-                      class="p-2 text-[12px] font-bold text-gray-700 text-right font-mono tracking-tight"
+                      <td
+                        class="p-2 text-[12px] font-black text-gray-600 border-r border-gray-50 sticky left-0 bg-white z-10"
+                      >
+                        {{ month }}
+                      </td>
+                      <td
+                        v-for="catSeries in categoryData?.series || []"
+                        :key="catSeries.name"
+                        class="p-2 text-[12px] font-bold text-gray-700 text-right font-mono tracking-tight"
+                      >
+                        {{ formatValue(catSeries.data[idx]) }}
+                      </td>
+                      <td
+                        class="p-2 text-[12px] font-black text-blue-800 text-right bg-blue-50 sticky right-0 z-10 font-mono shadow-[-6px_0_12px_rgba(0,0,0,0.05)] group-hover:bg-blue-100/30"
+                      >
+                        {{ formatValue(calculateMonthTotal(idx)) }}
+                      </td>
+                    </tr>
+                  </template>
+                  <template v-else>
+                    <tr
+                      v-for="year in comparisonData?.years || []"
+                      :key="year"
+                      class="hover:bg-blue-50/30 transition-all group"
                     >
-                      {{ formatValue(catSeries.data[idx]) }}
-                    </td>
-                    <td
-                      class="p-2 text-[12px] font-black text-blue-800 text-right bg-blue-50 sticky right-0 z-10 font-mono shadow-[-6px_0_12px_rgba(0,0,0,0.05)] group-hover:bg-blue-100/30"
-                    >
-                      {{ formatValue(calculateMonthTotal(idx)) }}
-                    </td>
-                  </tr>
+                      <td
+                        class="p-2 text-[12px] font-black text-gray-600 border-r border-gray-50 sticky left-0 bg-white z-10"
+                      >
+                        Năm {{ year }}
+                      </td>
+                      <td
+                        v-for="(val, vIdx) in comparisonData?.yearData[year] ||
+                        []"
+                        :key="vIdx"
+                        class="p-2 text-[12px] font-bold text-gray-700 text-right font-mono tracking-tight"
+                      >
+                        {{ formatValue(val) }}
+                      </td>
+                      <td
+                        class="p-2 text-[12px] font-black text-blue-800 text-right bg-blue-50 sticky right-0 z-10 font-mono shadow-[-6px_0_12px_rgba(0,0,0,0.05)] group-hover:bg-blue-100/30"
+                      >
+                        {{ formatValue(calculateYearTotal(year)) }}
+                      </td>
+                    </tr>
+                  </template>
                 </tbody>
                 <tfoot class="sticky bottom-0 z-20">
                   <tr
                     class="bg-slate-900 text-white shadow-[0_-4px_12px_rgba(0,0,0,0.1)]"
                   >
-                    <td
-                      class="p-3 text-[11px] font-black uppercase tracking-widest sticky left-0 bg-slate-900 z-10 border-r border-slate-800 rounded-bl-3xl"
-                    >
-                      TỔNG NĂM
-                    </td>
-                    <td
-                      v-for="catSeries in categoryData?.series || []"
-                      :key="catSeries.name"
-                      class="p-3 text-[12px] text-right font-mono font-black text-blue-300 max-w-[110px] truncate"
-                      :title="catSeries.name"
-                    >
-                      {{ formatValue(calculateCategoryTotal(catSeries.data)) }}
-                    </td>
-                    <td
-                      class="p-3 text-[13px] text-right bg-blue-600 font-mono font-black sticky right-0 z-10 shadow-[-4px_0_12px_rgba(0,0,0,0.2)] rounded-br-3xl"
-                    >
-                      {{ formatValue(calculateGrandTotal()) }}
-                    </td>
+                    <template v-if="dataType === 'all'">
+                      <td
+                        class="p-3 text-[11px] font-black uppercase tracking-widest sticky left-0 bg-slate-900 z-10 border-r border-slate-800 rounded-bl-3xl"
+                      >
+                        TỔNG NĂM
+                      </td>
+                      <td
+                        v-for="catSeries in categoryData?.series || []"
+                        :key="catSeries.name"
+                        class="p-3 text-[12px] text-right font-mono font-black text-blue-300 max-w-[110px] truncate"
+                        :title="catSeries.name"
+                      >
+                        {{
+                          formatValue(calculateCategoryTotal(catSeries.data))
+                        }}
+                      </td>
+                      <td
+                        class="p-3 text-[13px] text-right bg-blue-600 font-mono font-black sticky right-0 z-10 shadow-[-4px_0_12px_rgba(0,0,0,0.2)] rounded-br-3xl"
+                      >
+                        {{ formatValue(calculateGrandTotal()) }}
+                      </td>
+                    </template>
+                    <template v-else>
+                      <td
+                        class="p-3 text-[11px] font-black uppercase tracking-widest sticky left-0 bg-slate-900 z-10 border-r border-slate-800 rounded-bl-3xl"
+                      >
+                        TỔNG THÁNG
+                      </td>
+                      <td
+                        v-for="(label, idx) in comparisonData?.labels || []"
+                        :key="idx"
+                        class="p-3 text-[12px] text-right font-mono font-black text-blue-300 min-w-[60px]"
+                      >
+                        {{ formatValue(calculateMonthTotalAcrossYears(idx)) }}
+                      </td>
+                      <td
+                        class="p-3 text-[13px] text-right bg-blue-600 font-mono font-black sticky right-0 z-10 shadow-[-4px_0_12px_rgba(0,0,0,0.2)] rounded-br-3xl"
+                      >
+                        {{ formatValue(calculateGrandTotalAcrossYears()) }}
+                      </td>
+                    </template>
                   </tr>
                 </tfoot>
               </table>
@@ -411,6 +487,42 @@ const categoryData = computed(() => {
   return dashboardData.value.categoryData[activeMetric.value];
 });
 
+const comparisonData = computed(() => {
+  if (!dashboardData.value || !dashboardData.value.comparisonData) return null;
+  return dashboardData.value.comparisonData[activeMetric.value];
+});
+
+const lastVisibleGroups = ref(["all"]);
+
+// Filter product groups to hide those with 0 data (except 'all')
+const visibleProductGroups = computed(() => {
+  if (!productGroups.value) return ["all"];
+
+  // If we are looking at "all", compute which ones have data and update the lastKnown list
+  if (
+    dataType.value === "all" &&
+    dashboardData.value &&
+    dashboardData.value.categoryData &&
+    dashboardData.value.categoryData[activeMetric.value]
+  ) {
+    const currentData = dashboardData.value.categoryData[activeMetric.value];
+    if (currentData.series) {
+      const activeNames = currentData.series
+        .filter((s) => s.data && s.data.some((val) => val > 0))
+        .map((s) => s.name);
+
+      const filtered = productGroups.value.filter((g) => {
+        if (g === "all") return true;
+        return activeNames.includes(g);
+      });
+      lastVisibleGroups.value = filtered;
+    }
+  }
+
+  // Always return the last known good set of tabs to prevent them from disappearing
+  return lastVisibleGroups.value;
+});
+
 // --- METHODS ---
 
 const initCharts = () => {
@@ -506,30 +618,97 @@ const updateUI = () => {
   const metricObj = metrics.find((m) => m.id === activeMetric.value);
   const metricName = metricObj?.name || "Doanh thu";
 
-  if (isComparisonMode.value) {
-    const configData = dashboardData.value.comparisonData[activeMetric.value];
-    if (configData && chartInstance.value) {
+  // Handle special case: SINGLE month or quarter selected -> Swap axis to show meaningful lines
+  const isSinglePoint =
+    (filterMode.value === "month" && selectedMonth.value !== "") ||
+    (filterMode.value === "quarter" && selectedQuarter.value !== "");
+  const timeLabel =
+    filterMode.value === "month"
+      ? `Tháng ${selectedMonth.value}`
+      : `Quý ${selectedQuarter.value}`;
+
+  const comp = dashboardData.value.comparisonData?.[activeMetric.value];
+  const cat = dashboardData.value.categoryData?.[activeMetric.value];
+
+  if (isSinglePoint && comp && cat && dataType.value !== "all") {
+    // Trend across YEARS for a specific category (In comparison context, use Line)
+    const transformedData = {
+      labels: comp.years.map((y) => `Năm ${y}`),
+      years: [timeLabel],
+      yearData: {
+        [timeLabel]: comp.years.map((y) => comp.yearData[y][0]),
+      },
+    };
+    chartInstance.value.setOption(
+      getComparisonOption(transformedData, metricName, activeMetric.value),
+      true,
+    );
+  } else if (isComparisonMode.value) {
+    if (comp && chartInstance.value) {
+      // Filter years that have all 0 data
+      const activeYears = comp.years.filter((y) =>
+        comp.yearData[y].some((v) => v > 0),
+      );
+      const filteredComp = {
+        ...comp,
+        years: activeYears,
+      };
       chartInstance.value.setOption(
-        getComparisonOption(configData, metricName, activeMetric.value),
+        getComparisonOption(filteredComp, metricName, activeMetric.value),
         true,
       );
     }
   } else {
-    const catData = dashboardData.value.categoryData?.[activeMetric.value];
-    if (catData) {
-      if (chartInstance.value) {
+    // Normal View Logic
+    if (cat && chartInstance.value) {
+      // Automatic switch to multi-year comparison if specific product selected
+      if (
+        dataType.value !== "all" &&
+        comp &&
+        comp.years &&
+        comp.years.length > 0
+      ) {
         chartInstance.value.setOption(
-          getCategoryLineOption(catData, metricName, activeMetric.value),
+          getComparisonOption(comp, metricName, activeMetric.value),
           true,
         );
-      }
-      if (pieChartInstance.value) {
-        pieChartInstance.value.setOption(
-          getCategoryPieOption(catData.pieData, metricName, activeMetric.value),
+      } else {
+        // Standard view: filter series with 0 data
+        const filteredCat = {
+          ...cat,
+          series: cat.series.filter((s) => s.data.some((v) => v > 0)),
+        };
+        chartInstance.value.setOption(
+          getCategoryLineOption(filteredCat, metricName, activeMetric.value),
           true,
         );
       }
     }
+  }
+
+  // Common Pie Chart Update
+  if (pieChartInstance.value && cat) {
+    let pieData = cat.pieData || [];
+
+    // If specific category is selected, show breakdown by year instead of by products
+    if (
+      dataType.value !== "all" &&
+      comp &&
+      comp.years &&
+      comp.years.length > 0
+    ) {
+      pieData = comp.years
+        .map((y) => ({
+          name: `Năm ${y}`,
+          value: comp.yearData[y].reduce((sum, v) => sum + (v || 0), 0),
+        }))
+        .filter((item) => item.value > 0);
+    }
+
+    pieChartInstance.value.setOption(
+      getCategoryPieOption(pieData, metricName, activeMetric.value),
+      true,
+    );
   }
 };
 
@@ -560,6 +739,27 @@ const calculateGrandTotal = () => {
     (sum, s) => sum + calculateCategoryTotal(s.data),
     0,
   );
+};
+
+const calculateYearTotal = (year) => {
+  const data = comparisonData.value?.yearData?.[year];
+  if (!data) return 0;
+  return data.reduce((sum, v) => sum + (v || 0), 0);
+};
+
+const calculateMonthTotalAcrossYears = (monthIdx) => {
+  const comp = comparisonData.value;
+  if (!comp) return 0;
+  return comp.years.reduce(
+    (sum, y) => sum + (comp.yearData[y][monthIdx] || 0),
+    0,
+  );
+};
+
+const calculateGrandTotalAcrossYears = () => {
+  const comp = comparisonData.value;
+  if (!comp) return 0;
+  return comp.years.reduce((sum, y) => sum + calculateYearTotal(y), 0);
 };
 
 const renderTargetCharts = () => {
@@ -839,6 +1039,13 @@ watch(
 );
 
 watch(activeMetric, updateUI);
+
+// Reset category to 'all' if the current category is hidden (has 0 data)
+watch(visibleProductGroups, (newVisible) => {
+  if (!newVisible.includes(dataType.value)) {
+    dataType.value = "all";
+  }
+});
 </script>
 
 <style scoped>

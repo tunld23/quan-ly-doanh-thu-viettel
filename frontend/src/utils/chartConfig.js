@@ -38,7 +38,7 @@ export const getUpdateOption = (
   chartValues,
   metricName,
   prevValues = [],
-  metricId = ""
+  metricId = "",
 ) => {
   const isCurrency = metricId !== "serviceCount";
   const getGrowth = (cur, old) => {
@@ -48,6 +48,9 @@ export const getUpdateOption = (
 
   return {
     grid: {
+      show: true,
+      borderColor: "#e2e8f0",
+      borderWidth: 1,
       top: 60,
       bottom: labels.length > 8 ? 75 : 40,
       left: 50,
@@ -55,12 +58,18 @@ export const getUpdateOption = (
       containLabel: true,
     },
     xAxis: {
+      type: "category",
       data: labels,
+      boundaryGap: true,
       axisLabel: {
         interval: 0,
         rotate: labels.length > 8 ? 35 : 0,
         fontSize: 10,
         color: "#6b7280",
+      },
+      splitLine: {
+        show: true,
+        lineStyle: { color: "#f1f5f9", type: "dashed" },
       },
     },
     yAxis: {
@@ -70,22 +79,47 @@ export const getUpdateOption = (
         fontSize: 10,
         color: "#6b7280",
       },
+      splitLine: {
+        show: true,
+        lineStyle: { color: "#f1f5f9", type: "dashed" },
+      },
       boundaryGap: ["0%", "15%"],
     },
     series: [
       {
         name: metricName,
-        type: "bar",
-        barWidth: labels.length > 4 ? "50%" : "30%",
+        type: labels.length === 1 ? "bar" : "line",
+        smooth: 0.4,
+        showSymbol: true,
+        symbol: "circle",
+        symbolSize: 10,
+        barMaxWidth: "40",
+        barMinHeight: 5, // Improved balance for small data
         itemStyle: {
           color: "#65a5fe",
-          borderRadius: [4, 4, 0, 0],
+          borderRadius: [6, 6, 0, 0],
+          borderWidth: 2,
+          borderColor: "#fff",
+        },
+        lineStyle: {
+          width: 4,
+          cap: "round",
+          shadowBlur: 10,
+          shadowColor: "rgba(0,0,0,0.1)",
+          shadowOffsetY: 5,
+        },
+        areaStyle: {
+          opacity: 0.1,
+          color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+            { offset: 0, color: "#65a5fe" },
+            { offset: 1, color: "rgba(255, 255, 255, 0)" },
+          ]),
         },
         data: chartValues,
         label: {
           show: true,
           position: "top",
-          distance: 5,
+          distance: 10,
           formatter: (params) => {
             const idx = params.dataIndex;
             const curVal = chartValues[idx];
@@ -138,7 +172,7 @@ export const getUpdateOption = (
         let res = `<div style="font-weight:bold;margin-bottom:8px;border-bottom:1px solid #f0f0f0;padding-bottom:6px;font-size:13px;">${p.name}</div>`;
         res += `<div style="display:flex;justify-content:space-between;gap:30px;margin-bottom:2px;">
           <span style="color:#666;">${p.marker} ${p.seriesName}:</span>
-          <span style="font-weight:bold;color:#1e293b;">${curVal.toLocaleString("vi-VN")}${isCurrency ? ' VNĐ' : ''}</span>
+          <span style="font-weight:bold;color:#1e293b;">${curVal.toLocaleString("vi-VN")}${isCurrency ? " VNĐ" : ""}</span>
         </div>`;
 
         if (oldVal > 0 && curVal > 0) {
@@ -152,7 +186,7 @@ export const getUpdateOption = (
               <span>${icon} ${Math.abs(growth)}%</span>
             </div>
             <div style="font-size:11px;color:#94a3b8;text-align:right;">
-              (${diff >= 0 ? "+" : ""}${diff.toLocaleString("vi-VN")}${isCurrency ? ' VNĐ' : ''})
+              (${diff >= 0 ? "+" : ""}${diff.toLocaleString("vi-VN")}${isCurrency ? " VNĐ" : ""})
             </div>
           </div>`;
         }
@@ -171,7 +205,7 @@ export const getComparisonOption = (data, metricName, metricId = "") => {
     return (((cur - prev) / prev) * 100).toFixed(1);
   };
 
-  const displayYears = [...years].sort((a,b) => a - b);
+  const displayYears = [...years].sort((a, b) => a - b);
   const series = [];
 
   // Professional Gradient Blue (Decreasing intensity from Newest to Oldest)
@@ -181,7 +215,7 @@ export const getComparisonOption = (data, metricName, metricId = "") => {
     "#60A5FA", // Light Blue
     "#93C5FD", // Sky Blue
     "#BFDBFE", // Faded Blue
-    "#DBEAFE"  // Very Light Blue
+    "#DBEAFE", // Very Light Blue
   ];
 
   displayYears.forEach((y, idx) => {
@@ -196,23 +230,24 @@ export const getComparisonOption = (data, metricName, metricId = "") => {
       name: String(y),
       type: isSinglePoint ? "bar" : "line",
       smooth: 0.4,
-      barMaxWidth: 40,
+      barMaxWidth: 30,
+      barMinHeight: 5, // Improved balance for small data
       showSymbol: true,
-      symbol: 'circle',
-      symbolSize: 8,
-      itemStyle: { 
+      symbol: "circle",
+      symbolSize: 10,
+      itemStyle: {
         color: colors[colorIdx],
         borderWidth: 2,
-        borderColor: '#fff',
-        borderRadius: isSinglePoint ? [4, 4, 0, 0] : 0
+        borderColor: "#fff",
+        borderRadius: [4, 4, 0, 0],
       },
       data: values,
-      lineStyle: { 
-        width: 4, 
-        cap: 'round', 
+      lineStyle: {
+        width: 4,
+        cap: "round",
         shadowBlur: 10,
-        shadowColor: 'rgba(0,0,0,0.1)',
-        shadowOffsetY: 5
+        shadowColor: "rgba(0,0,0,0.1)",
+        shadowOffsetY: 5,
       },
       areaStyle: {
         opacity: 0.05,
@@ -231,8 +266,22 @@ export const getComparisonOption = (data, metricName, metricId = "") => {
           return `{${growth >= 0 ? "up" : "down"}|${Math.abs(growth)}%}`;
         },
         rich: {
-          up: { color: "#10B981", fontSize: 8, fontWeight: "bold", backgroundColor: "#D1FAE5", padding: [1, 2], borderRadius: 2 },
-          down: { color: "#EF4444", fontSize: 8, fontWeight: "bold", backgroundColor: "#FEE2E2", padding: [1, 2], borderRadius: 2 },
+          up: {
+            color: "#10B981",
+            fontSize: 8,
+            fontWeight: "bold",
+            backgroundColor: "#D1FAE5",
+            padding: [1, 2],
+            borderRadius: 2,
+          },
+          down: {
+            color: "#EF4444",
+            fontSize: 8,
+            fontWeight: "bold",
+            backgroundColor: "#FEE2E2",
+            padding: [1, 2],
+            borderRadius: 2,
+          },
         },
       },
     });
@@ -244,9 +293,12 @@ export const getComparisonOption = (data, metricName, metricId = "") => {
       top: 0,
       icon: "roundRect",
       data: displayYears.map(String),
-      textStyle: { fontWeight: "bold", fontSize: 12 }
+      textStyle: { fontWeight: "bold", fontSize: 12 },
     },
     grid: {
+      show: true,
+      borderColor: "#e2e8f0",
+      borderWidth: 1,
       top: 80,
       bottom: labels.length > 8 ? 75 : 40,
       left: 30,
@@ -256,14 +308,19 @@ export const getComparisonOption = (data, metricName, metricId = "") => {
     xAxis: {
       type: "category",
       data: labels,
+      boundaryGap: true,
       axisLabel: { fontSize: 11, color: "#6b7280", fontWeight: "bold" },
+      splitLine: {
+        show: true,
+        lineStyle: { color: "#f1f5f9", type: "dashed" },
+      },
     },
     yAxis: {
       type: "value",
-      axisLabel: { 
-        formatter: (v) => formatMoney(v, isCurrency), 
+      axisLabel: {
+        formatter: (v) => formatMoney(v, isCurrency),
         fontSize: 10,
-        fontWeight: "bold"
+        fontWeight: "bold",
       },
       splitLine: { lineStyle: { type: "dashed", color: "#f0f0f0" } },
       boundaryGap: ["0%", "15%"],
@@ -279,13 +336,17 @@ export const getComparisonOption = (data, metricName, metricId = "") => {
         if (!params || !params.length) return "";
         let res = `<div style="font-weight:bold;margin-bottom:10px;border-bottom:1px solid #eee;padding-bottom:6px;font-size:14px;">${params[0].name}</div>`;
 
-        const sortedParams = [...params].sort((a,b) => b.seriesName - a.seriesName);
+        const sortedParams = [...params].sort(
+          (a, b) => b.seriesName - a.seriesName,
+        );
 
         sortedParams.forEach((p) => {
           const curVal = p.value || 0;
           const currentYear = parseInt(p.seriesName);
           const prevYear = currentYear - 1;
-          const prevParam = sortedParams.find(sp => parseInt(sp.seriesName) === prevYear);
+          const prevParam = sortedParams.find(
+            (sp) => parseInt(sp.seriesName) === prevYear,
+          );
           const prevVal = prevParam ? prevParam.value : null;
 
           res += `<div style="display:flex;justify-content:space-between;gap:30px;margin-bottom:5px;align-items:center;">
@@ -293,22 +354,22 @@ export const getComparisonOption = (data, metricName, metricId = "") => {
               ${p.marker} <span style="font-weight:bold;">Năm ${p.seriesName}:</span>
             </div>
             <div style="text-align:right;">
-              <div style="font-weight:black;color:#1e293b;">${curVal.toLocaleString("vi-VN")}${isCurrency ? ' VNĐ' : ''}</div>`;
-          
+              <div style="font-weight:black;color:#1e293b;">${curVal.toLocaleString("vi-VN")}${isCurrency ? " VNĐ" : ""}</div>`;
+
           if (prevVal && prevVal > 0 && curVal > 0) {
             const growth = getGrowth(curVal, prevVal);
             const color = growth >= 0 ? "#10B981" : "#EF4444";
             const icon = growth >= 0 ? "▲" : "▼";
             res += `<div style="font-size:10px;color:${color};font-weight:bold;">${icon} ${Math.abs(growth)}% so với ${prevYear}</div>`;
           }
-          
+
           res += `</div></div>`;
         });
 
         return res;
       },
     },
-    series
+    series,
   };
 };
 
@@ -318,32 +379,42 @@ export const getCategoryLineOption = (data, metricName, metricId = "") => {
   const isCurrency = metricId !== "serviceCount";
 
   const colors = [
-    '#6366f1', '#8b5cf6', '#ec4899', '#f43f5e', 
-    '#f59e0b', '#10b981', '#06b6d4', '#3b82f6',
-    '#64748b', '#ef4444', '#84cc16', '#a855f7'
+    "#6366f1",
+    "#8b5cf6",
+    "#ec4899",
+    "#f43f5e",
+    "#f59e0b",
+    "#10b981",
+    "#06b6d4",
+    "#3b82f6",
+    "#64748b",
+    "#ef4444",
+    "#84cc16",
+    "#a855f7",
   ];
 
   return {
     color: colors,
     legend: {
-      type: 'scroll',
+      type: "scroll",
       bottom: 0,
       itemWidth: 10,
       itemHeight: 10,
-      textStyle: { fontSize: 10, fontWeight: 'bold', color: '#64748b' }
+      textStyle: { fontSize: 10, fontWeight: "bold", color: "#64748b" },
     },
     tooltip: {
-      trigger: 'axis',
-      backgroundColor: 'rgba(255, 255, 255, 0.98)',
+      trigger: "axis",
+      backgroundColor: "rgba(255, 255, 255, 0.98)",
       padding: [12, 16],
-      extraCssText: 'box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1); border-radius: 12px; border: none; min-width: 280px;',
+      extraCssText:
+        "box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1); border-radius: 12px; border: none; min-width: 280px;",
       formatter: (params) => {
         let res = `<div style="font-weight:800;margin-bottom:12px;color:#1e293b;font-size:14px;border-bottom:1px solid #f1f5f9;padding-bottom:10px;display:flex;justify-content:space-between;align-items:center;">
                     <span>${params[0].name}</span>
                     <span style="font-size:10px;background:#f1f5f9;padding:2px 6px;border-radius:4px;color:#64748b;">${metricName}</span>
                    </div>`;
-        const sorted = [...params].sort((a,b) => b.value - a.value);
-        sorted.forEach(p => {
+        const sorted = [...params].sort((a, b) => b.value - a.value);
+        sorted.forEach((p) => {
           res += `<div style="display:flex;justify-content:space-between;gap:40px;margin-bottom:6px;align-items:center;">
                     <div style="display:flex;align-items:center;gap:8px;">
                       <span style="display:inline-block;width:10px;height:10px;border-radius:3px;background:${p.color}"></span>
@@ -353,92 +424,121 @@ export const getCategoryLineOption = (data, metricName, metricId = "") => {
                   </div>`;
         });
         return res;
-      }
+      },
     },
-    grid: { top: 40, bottom: 85, left: 10, right: 10, containLabel: true },
+    grid: {
+      show: true,
+      borderColor: "#e2e8f0",
+      borderWidth: 1,
+      top: 40,
+      bottom: 85,
+      left: 10,
+      right: 10,
+      containLabel: true,
+    },
     xAxis: {
-      type: 'category',
+      type: "category",
       data: months,
-      boundaryGap: false,
-      axisLabel: { fontSize: 10, color: "#64748b", fontWeight: 'bold', margin: 15 },
-      axisLine: { lineStyle: { color: '#e2e8f0' } },
-      axisTick: { show: false }
+      boundaryGap: true,
+      axisLabel: {
+        fontSize: 10,
+        color: "#64748b",
+        fontWeight: "bold",
+        margin: 15,
+      },
+      axisLine: { lineStyle: { color: "#e2e8f0" } },
+      axisTick: { show: false },
+      splitLine: {
+        show: true,
+        lineStyle: { color: "#f1f5f9", type: "dashed" },
+      },
     },
     yAxis: {
-      type: 'value',
-      axisLabel: { 
-        formatter: (v) => formatMoney(v, isCurrency), 
-        fontSize: 10, 
+      type: "value",
+      axisLabel: {
+        formatter: (v) => formatMoney(v, isCurrency),
+        fontSize: 10,
         color: "#64748b",
-        fontWeight: 'bold',
-        margin: 10
+        fontWeight: "bold",
+        margin: 10,
       },
-      splitLine: { lineStyle: { color: '#f1f5f9', type: 'dashed' } }
+      splitLine: {
+        show: true,
+        lineStyle: { color: "#f1f5f9", type: "dashed" },
+      },
     },
     series: series.map((s, idx) => {
       const isSinglePoint = months.length === 1;
       return {
         name: s.name,
-        type: isSinglePoint ? 'bar' : 'line',
+        type: isSinglePoint ? "bar" : "line",
         smooth: 0.4,
-        barMaxWidth: 60,
+        barMaxWidth: 30,
+        barMinHeight: 5, // Improved balance for small data
         showSymbol: true,
-        symbol: 'circle',
-        symbolSize: 7,
-        itemStyle: { 
+        symbol: "circle",
+        symbolSize: 10,
+        itemStyle: {
           color: colors[idx % colors.length],
           borderWidth: 2,
-          borderColor: '#fff',
-          borderRadius: isSinglePoint ? [4, 4, 0, 0] : 0
+          borderColor: "#fff",
+          borderRadius: [4, 4, 0, 0],
         },
         data: s.data,
-        lineStyle: { 
-          width: 4, 
-          cap: 'round', 
+        lineStyle: {
+          width: 4,
+          cap: "round",
           shadowBlur: 10,
-          shadowColor: 'rgba(0,0,0,0.1)',
-          shadowOffsetY: 5
+          shadowColor: "rgba(0,0,0,0.1)",
+          shadowOffsetY: 5,
         },
         areaStyle: {
           opacity: 0.1,
           color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
             { offset: 0, color: colors[idx % colors.length] },
-            { offset: 1, color: 'rgba(255, 255, 255, 0)' }
-          ])
+            { offset: 1, color: "rgba(255, 255, 255, 0)" },
+          ]),
         },
-        emphasis: { 
-          focus: 'series',
+        emphasis: {
+          focus: "series",
           lineStyle: { width: 5 },
-          itemStyle: { scale: 1.5 }
-        }
+          itemStyle: { scale: 1.5 },
+        },
       };
-    })
+    }),
   };
 };
 
 export const getCategoryPieOption = (pieData, metricName, metricId = "") => {
   if (!pieData) return getBaseChartOption();
-  
+
   const isCurrency = metricId !== "serviceCount";
-  
+
   // 1. Data Processing: Sort by value (largest to smallest)
   const total = pieData.reduce((acc, curr) => acc + curr.value, 0);
   const data = [...pieData].sort((a, b) => b.value - a.value);
 
   const colors = [
-    '#3b82f6', '#10b981', '#f59e0b', '#6366f1', 
-    '#ec4899', '#8b5cf6', '#06b6d4', '#f43f5e', '#84cc16'
+    "#3b82f6",
+    "#10b981",
+    "#f59e0b",
+    "#6366f1",
+    "#ec4899",
+    "#8b5cf6",
+    "#06b6d4",
+    "#f43f5e",
+    "#84cc16",
   ];
 
   return {
     color: colors,
     tooltip: {
-      trigger: 'item',
-      backgroundColor: 'rgba(255, 255, 255, 0.98)',
+      trigger: "item",
+      backgroundColor: "rgba(255, 255, 255, 0.98)",
       padding: [12, 16],
       borderRadius: 12,
       borderWidth: 0,
-      extraCssText: 'box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);',
+      extraCssText: "box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);",
       formatter: (p) => {
         return `<div style="font-weight:800;color:#1e293b;margin-bottom:8px;border-bottom:1px solid #f1f5f9;padding-bottom:6px;">${p.name}</div>
                 <div style="display:flex;justify-content:space-between;gap:30px;margin-bottom:6px;">
@@ -449,66 +549,72 @@ export const getCategoryPieOption = (pieData, metricName, metricId = "") => {
                   <span style="color:#64748b;font-size:12px;">Tỷ trọng:</span>
                   <span style="font-weight:900;color:${p.color};">${p.percent}%</span>
                 </div>`;
-      }
+      },
     },
     // Requirement 2: Legend below, vertical stack, show ALL items
     legend: {
       show: true,
-      type: 'scroll',
-      orient: 'vertical',
-      bottom: 0,
-      left: 'center',
-      icon: 'circle',
-      padding: [25, 0, 15, 0],
+      type: "scroll",
+      orient: "vertical",
+      top: "65%", // Vertically centered-ish in the bottom area
+      bottom: "5%", // Padding from bottom
+      left: "center",
+      icon: "circle",
+      padding: [0, 0, 5, 0],
       itemWidth: 10,
       itemHeight: 10,
       itemGap: 8,
       // Requirement: Formatter [Name] : [Value] ( [Percent]% ) with 2 decimals
       formatter: (name) => {
-        const item = data.find(d => d.name === name);
+        const item = data.find((d) => d.name === name);
         const percent = item ? ((item.value / total) * 100).toFixed(2) : 0;
         const value = item ? formatMoney(item.value, isCurrency) : 0;
-        return `${name.padEnd(12, ' ')} : ${value} ( ${percent}% )`;
+        return `${name.padEnd(12, " ")} : ${value} ( ${percent}% )`;
       },
-      textStyle: { fontSize: 11, fontWeight: '700', color: '#64748b', fontFamily: 'monospace' }
+      textStyle: {
+        fontSize: 11,
+        fontWeight: "700",
+        color: "#64748b",
+        fontFamily: "monospace",
+      },
     },
     title: { show: false },
     series: [
       {
         name: metricName,
-        type: 'pie',
+        type: "pie",
         // Requirement 3: Traditional solid pie
-        radius: '60%',
-        center: ['50%', '32%'],
+        radius: "60%",
+        center: ["50%", "32%"],
         avoidLabelOverlap: true,
         itemStyle: {
           borderRadius: 0,
-          borderColor: '#fff',
-          borderWidth: 1
+          borderColor: "#fff",
+          borderWidth: 1,
         },
         // Requirement 1: Per-item labels (INSIDE for >= 3%, Hidden for < 3%)
-        data: data.map(item => {
+        data: data.map((item) => {
           const percent = (item.value / total) * 100;
           const isLarge = percent >= 3;
           return {
             ...item,
             label: {
               show: isLarge,
-              position: 'inside',
-              formatter: '{d}%',
+              position: "inside",
+              formatter: "{d}%",
               fontSize: 12,
-              fontWeight: 'bold',
-              color: '#fff'
+              fontWeight: "bold",
+              color: "#fff",
             },
-            labelLine: { show: false } // Requirement: No external lines
+            labelLine: { show: false }, // Requirement: No external lines
           };
         }),
         emphasis: {
           scale: true,
           scaleSize: 10,
-          itemStyle: { shadowBlur: 20, shadowColor: 'rgba(0,0,0,0.1)' }
-        }
-      }
-    ]
+          itemStyle: { shadowBlur: 20, shadowColor: "rgba(0,0,0,0.1)" },
+        },
+      },
+    ],
   };
 };

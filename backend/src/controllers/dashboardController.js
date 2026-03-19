@@ -82,9 +82,8 @@ export const getDashboardData = async (req, res) => {
     });
 
     // 3. Category Breakdown Data (Line, Pie, Table)
-    // We fetch a SEPARATE recordset without the Category filter for the Category Summary charts
-    // so that the chart always shows the full context even when a specific category is selected
-    const categoryRecordset = await fetchRawDashboardData(db, { type: "all", year, source });
+    // Use the actual 'type' filter provided in the request
+    const categoryRecordset = await fetchRawDashboardData(db, { type, year, source });
     metrics.forEach(metric => {
       response.categoryData[metric] = analytics.aggregateCategoryData(categoryRecordset, analyticsFilters, metric);
     });
