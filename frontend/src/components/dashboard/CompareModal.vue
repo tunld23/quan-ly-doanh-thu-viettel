@@ -24,33 +24,44 @@
           <!-- Selection Section -->
           <div>
             <label class="block text-[13px] font-black text-gray-400 uppercase tracking-[0.15em] mb-4 text-center">Chọn chế độ so sánh</label>
-            <div class="grid grid-cols-2 gap-4">
+            <div class="grid grid-cols-3 gap-3">
+              <button 
+                @click="localMode = 'all'" 
+                class="flex flex-col items-center gap-2 p-4 rounded-2xl border-2 transition-all group"
+                :class="localMode === 'all' ? 'border-blue-600 bg-blue-50/50 ring-4 ring-blue-500/10' : 'border-gray-100 hover:border-blue-200'"
+              >
+                <div class="w-10 h-10 rounded-full flex items-center justify-center transition-colors" :class="localMode === 'all' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-400 group-hover:bg-blue-100 group-hover:text-blue-500'">
+                  <span class="font-black text-base">Y</span>
+                </div>
+                <span class="text-[12px] font-bold" :class="localMode === 'all' ? 'text-blue-700' : 'text-gray-600'">Cả năm</span>
+              </button>
+
               <button 
                 @click="localMode = 'quarter'" 
-                class="flex flex-col items-center gap-3 p-5 rounded-2xl border-2 transition-all group"
+                class="flex flex-col items-center gap-2 p-4 rounded-2xl border-2 transition-all group"
                 :class="localMode === 'quarter' ? 'border-blue-600 bg-blue-50/50 ring-4 ring-blue-500/10' : 'border-gray-100 hover:border-blue-200'"
               >
-                <div class="w-12 h-12 rounded-full flex items-center justify-center transition-colors" :class="localMode === 'quarter' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-400 group-hover:bg-blue-100 group-hover:text-blue-500'">
-                  <span class="font-black text-lg">Q</span>
+                <div class="w-10 h-10 rounded-full flex items-center justify-center transition-colors" :class="localMode === 'quarter' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-400 group-hover:bg-blue-100 group-hover:text-blue-500'">
+                  <span class="font-black text-base">Q</span>
                 </div>
-                <span class="text-sm font-bold" :class="localMode === 'quarter' ? 'text-blue-700' : 'text-gray-600'">Theo Quý</span>
+                <span class="text-[12px] font-bold" :class="localMode === 'quarter' ? 'text-blue-700' : 'text-gray-600'">Theo Quý</span>
               </button>
 
               <button 
                 @click="localMode = 'month'" 
-                class="flex flex-col items-center gap-3 p-5 rounded-2xl border-2 transition-all group"
+                class="flex flex-col items-center gap-2 p-4 rounded-2xl border-2 transition-all group"
                 :class="localMode === 'month' ? 'border-blue-600 bg-blue-50/50 ring-4 ring-blue-500/10' : 'border-gray-100 hover:border-blue-200'"
               >
-                 <div class="w-12 h-12 rounded-full flex items-center justify-center transition-colors" :class="localMode === 'month' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-400 group-hover:bg-blue-100 group-hover:text-blue-500'">
-                  <span class="font-black text-lg">M</span>
+                 <div class="w-10 h-10 rounded-full flex items-center justify-center transition-colors" :class="localMode === 'month' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-400 group-hover:bg-blue-100 group-hover:text-blue-500'">
+                  <span class="font-black text-base">M</span>
                 </div>
-                <span class="text-sm font-bold" :class="localMode === 'month' ? 'text-blue-700' : 'text-gray-600'">Theo Tháng</span>
+                <span class="text-[12px] font-bold" :class="localMode === 'month' ? 'text-blue-700' : 'text-gray-600'">Theo Tháng</span>
               </button>
             </div>
           </div>
 
           <!-- Specific Selector -->
-          <div class="bg-slate-50 p-6 rounded-2xl border border-slate-100">
+          <div v-if="localMode !== 'all'" class="bg-slate-50 p-6 rounded-2xl border border-slate-100">
             <label class="block text-[13px] font-bold text-slate-500 mb-3 ml-1">Chọn {{ localMode === 'quarter' ? 'Quý' : 'Tháng' }} cụ thể</label>
             <select v-model="localValue" class="w-full px-4 py-3 border border-slate-200 rounded-xl bg-white focus:ring-4 focus:ring-blue-500/10 outline-none font-bold text-slate-700 transition-all shadow-sm">
                 <option value="">Tất cả các {{ localMode === 'quarter' ? 'quý' : 'tháng' }}</option>
@@ -62,6 +73,10 @@
                 </template>
             </select>
             <p class="mt-3 text-[11px] text-slate-400 font-medium italic">* Biểu đồ sẽ hiển thị dữ liệu so sánh các năm có trong hệ thống.</p>
+          </div>
+
+          <div v-else class="bg-blue-50/30 p-6 rounded-2xl border border-blue-100/50">
+             <p class="text-[13px] text-blue-600 font-bold leading-relaxed text-center italic">Chế độ "Cả năm" sẽ so sánh tổng doanh thu của từng năm với nhau trên một đường biểu diễn xu hướng duy nhất.</p>
           </div>
         </div>
 
@@ -85,12 +100,12 @@ const props = defineProps({
 
 const emit = defineEmits(['update:show', 'compare']);
 
-const localMode = ref('quarter');
+const localMode = ref('all');
 const localValue = ref('');
 
 watch(() => props.show, (newVal) => {
   if (newVal) {
-    localMode.value = props.currentMode === 'all' ? 'quarter' : props.currentMode;
+    localMode.value = props.currentMode === 'all' ? 'all' : props.currentMode;
     localValue.value = props.currentValue;
   }
 });

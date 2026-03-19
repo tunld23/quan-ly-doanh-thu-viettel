@@ -1,5 +1,5 @@
 <script setup>
-import { defineProps, defineEmits, ref } from "vue";
+import { ref } from "vue";
 import EmptyData from "../common/EmptyData.vue";
 
 const props = defineProps({

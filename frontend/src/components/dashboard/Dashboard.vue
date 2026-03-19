@@ -19,18 +19,11 @@
       :available-quarters="availableQuarters"
       :metrics="metrics"
       :product-groups="visibleProductGroups"
-      @open-compare="openCompare"
+      :is-comparison-mode="isComparisonMode"
+      @toggle-compare="isComparisonMode = !isComparisonMode"
     />
 
-    <!-- Comparison Modal -->
-    <CompareModal
-      v-model:show="showCompareModal"
-      :current-mode="filterMode"
-      :current-value="
-        filterMode === 'quarter' ? selectedQuarter : selectedMonth
-      "
-      @compare="handleCompareRequest"
-    />
+
 
     <!-- Main Chart & Ranking Card -->
     <div
@@ -53,7 +46,9 @@
                 <div class="w-1.5 h-6 bg-blue-600 rounded-full"></div>
                 {{
                   isComparisonMode
-                    ? `So sánh xu hướng ${activeMetric === "serviceCount" ? "số lượng" : "doanh thu"} qua các năm`
+                    ? isSinglePoint
+                      ? `So sánh xu hướng ${activeMetric === "serviceCount" ? "số lượng" : "doanh thu"} ${timeLabel.toLowerCase()} qua các năm`
+                      : `Biểu đồ so sánh doanh thu 12 tháng qua các năm`
                     : `${activeMetric === "serviceCount" ? "Số lượng" : "Doanh Thu"} `
                 }}
               </div>
@@ -135,96 +130,101 @@
               <table class="w-full text-left border-separate border-spacing-0">
                 <thead class="sticky top-0 z-20">
                   <tr class="bg-gray-50/90 backdrop-blur-md">
-                    <template v-if="dataType === 'all'">
+                    <!-- Standard Product Breakdown View -->
+                    <template v-if="!isComparisonMode && dataType === 'all'">
                       <th
-                        class="p-2 text-[10px] font-black text-gray-500 uppercase tracking-widest border-b border-gray-100 sticky left-0 bg-gray-50 z-30"
+                        class="p-4 text-left text-[11px] font-black text-gray-500 uppercase tracking-widest border-b border-gray-100 sticky left-0 bg-gray-50 z-30"
                       >
                         Tháng
                       </th>
                       <th
                         v-for="cat in categoryData?.categories || []"
                         :key="cat"
-                        class="p-2 text-[9px] font-black text-gray-700 uppercase tracking-widest border-b border-gray-100 text-right min-w-[70px] max-w-[110px] truncate"
+                        class="p-4 text-[10px] font-black text-gray-700 uppercase tracking-widest border-b border-gray-100 text-right min-w-[100px] truncate"
                         :title="cat"
                       >
                         {{ cat }}
                       </th>
                       <th
-                        class="p-2 text-[10px] font-black text-blue-700 uppercase tracking-widest border-b border-gray-200 text-right bg-[#f8fafc] sticky right-0 z-30 shadow-[-6px_0_12px_rgba(0,0,0,0.05)] min-w-[100px]"
+                        class="p-4 text-[11px] font-black text-blue-700 uppercase tracking-widest border-b border-gray-200 text-right bg-blue-100 sticky right-0 z-30 shadow-[-6px_0_12px_rgba(43,84,255,0.15)] min-w-[120px]"
                       >
                         Tổng tháng
                       </th>
                     </template>
+
+                    <!-- Comparison Matrix View (Vertical: Month, Horizontal: Year) -->
                     <template v-else>
                       <th
-                        class="p-2 text-[10px] font-black text-gray-500 uppercase tracking-widest border-b border-gray-100 sticky left-0 bg-gray-50 z-30"
+                        class="p-4 text-left text-[11px] font-black text-gray-400 uppercase tracking-widest border-b border-gray-100 sticky left-0 bg-gray-50 z-30 shadow-[4px_0_8px_rgba(0,0,0,0.05)]"
                       >
-                        Năm
+                        Tháng
                       </th>
                       <th
-                        v-for="label in comparisonData?.labels || []"
-                        :key="label"
-                        class="p-2 text-[10px] font-black text-gray-700 uppercase tracking-widest border-b border-gray-100 text-right min-w-[60px]"
+                        v-for="year in comparisonData?.years || []"
+                        :key="year"
+                        class="p-4 text-right text-[11px] font-black text-gray-700 uppercase tracking-widest border-b border-gray-100 text-right min-w-[120px]"
                       >
-                        {{ label }}
+                        Năm {{ year }}
                       </th>
                       <th
-                        class="p-2 text-[10px] font-black text-blue-700 uppercase tracking-widest border-b border-gray-200 text-right bg-[#f8fafc] sticky right-0 z-30 shadow-[-6px_0_12px_rgba(0,0,0,0.05)] min-w-[100px]"
+                        class="p-4 text-[11px] font-black text-blue-700 uppercase tracking-widest border-b border-gray-200 text-right bg-blue-100 sticky right-0 z-30 shadow-[-6px_0_12px_rgba(43,84,255,0.15)] min-w-[140px]"
                       >
-                        Tổng năm
+                        Tổng tháng
                       </th>
                     </template>
                   </tr>
                 </thead>
                 <tbody class="divide-y divide-gray-50 bg-white">
-                  <template v-if="dataType === 'all'">
+                  <!-- Case 1: Standard Table -->
+                  <template v-if="!isComparisonMode && dataType === 'all'">
                     <tr
                       v-for="(month, idx) in categoryData?.months || []"
                       :key="month"
-                      class="hover:bg-blue-50/30 transition-all group"
+                      class="hover:bg-blue-50/10 transition-all group"
                     >
                       <td
-                        class="p-2 text-[12px] font-black text-gray-600 border-r border-gray-50 sticky left-0 bg-white z-10"
+                        class="p-4 text-[13px] font-black text-gray-600 border-r border-gray-100 sticky left-0 bg-white z-10"
                       >
                         {{ month }}
                       </td>
                       <td
                         v-for="catSeries in categoryData?.series || []"
                         :key="catSeries.name"
-                        class="p-2 text-[12px] font-bold text-gray-700 text-right font-mono tracking-tight"
+                        class="p-4 text-[13px] font-bold text-gray-700 text-right font-mono tracking-tight"
                       >
                         {{ formatValue(catSeries.data[idx]) }}
                       </td>
                       <td
-                        class="p-2 text-[12px] font-black text-blue-800 text-right bg-blue-50 sticky right-0 z-10 font-mono shadow-[-6px_0_12px_rgba(0,0,0,0.05)] group-hover:bg-blue-100/30"
+                        class="p-4 text-[13px] font-black text-blue-800 text-right bg-blue-50 sticky right-0 z-10 font-mono shadow-[-6px_0_12px_rgba(43,84,255,0.08)] group-hover:bg-blue-100"
                       >
                         {{ formatValue(calculateMonthTotal(idx)) }}
                       </td>
                     </tr>
                   </template>
+
+                  <!-- Case 2: Comparison Matrix Table (Month as Row) -->
                   <template v-else>
                     <tr
-                      v-for="year in comparisonData?.years || []"
-                      :key="year"
-                      class="hover:bg-blue-50/30 transition-all group"
+                      v-for="(label, lIdx) in comparisonData?.labels || []"
+                      :key="lIdx"
+                      class="hover:bg-blue-50/10 transition-all group"
                     >
                       <td
-                        class="p-2 text-[12px] font-black text-gray-600 border-r border-gray-50 sticky left-0 bg-white z-10"
+                        class="p-4 text-[13px] font-black text-slate-800 border-r border-gray-100 sticky left-0 bg-white z-10 shadow-[4px_0_8px_rgba(0,0,0,0.02)]"
                       >
-                        Năm {{ year }}
+                        {{ label }}
                       </td>
                       <td
-                        v-for="(val, vIdx) in comparisonData?.yearData[year] ||
-                        []"
-                        :key="vIdx"
-                        class="p-2 text-[12px] font-bold text-gray-700 text-right font-mono tracking-tight"
+                        v-for="year in comparisonData?.years || []"
+                        :key="year"
+                        class="p-4 text-[13px] font-bold text-gray-600 text-right font-mono tracking-tight"
                       >
-                        {{ formatValue(val) }}
+                        {{ formatValue(comparisonData?.yearData[year][lIdx]) }}
                       </td>
                       <td
-                        class="p-2 text-[12px] font-black text-blue-800 text-right bg-blue-50 sticky right-0 z-10 font-mono shadow-[-6px_0_12px_rgba(0,0,0,0.05)] group-hover:bg-blue-100/30"
+                        class="p-4 text-[14px] font-black text-blue-800 text-right bg-white sticky right-0 z-10 font-mono shadow-[-6px_0_12px_rgba(43,84,255,0.12)] group-hover:bg-blue-50"
                       >
-                        {{ formatValue(calculateYearTotal(year)) }}
+                        {{ formatValue(calculateMonthTotalAcrossYears(lIdx)) }}
                       </td>
                     </tr>
                   </template>
@@ -233,7 +233,7 @@
                   <tr
                     class="bg-slate-900 text-white shadow-[0_-4px_12px_rgba(0,0,0,0.1)]"
                   >
-                    <template v-if="dataType === 'all'">
+                    <template v-if="dataType === 'all' && !isComparisonMode">
                       <td
                         class="p-3 text-[11px] font-black uppercase tracking-widest sticky left-0 bg-slate-900 z-10 border-r border-slate-800 rounded-bl-3xl"
                       >
@@ -250,7 +250,7 @@
                         }}
                       </td>
                       <td
-                        class="p-3 text-[13px] text-right bg-blue-600 font-mono font-black sticky right-0 z-10 shadow-[-4px_0_12px_rgba(0,0,0,0.2)] rounded-br-3xl"
+                        class="p-4 text-[14px] text-right bg-blue-600 font-mono font-black text-white sticky right-0 z-10 shadow-[-4px_0_12px_rgba(43,84,255,0.2)] rounded-br-3xl"
                       >
                         {{ formatValue(calculateGrandTotal()) }}
                       </td>
@@ -259,17 +259,17 @@
                       <td
                         class="p-3 text-[11px] font-black uppercase tracking-widest sticky left-0 bg-slate-900 z-10 border-r border-slate-800 rounded-bl-3xl"
                       >
-                        TỔNG THÁNG
+                        TỔNG NĂM
                       </td>
                       <td
-                        v-for="(label, idx) in comparisonData?.labels || []"
-                        :key="idx"
-                        class="p-3 text-[12px] text-right font-mono font-black text-blue-300 min-w-[60px]"
+                        v-for="year in comparisonData?.years || []"
+                        :key="year"
+                        class="p-3 text-[12px] text-right font-mono font-black text-blue-300 min-w-[120px]"
                       >
-                        {{ formatValue(calculateMonthTotalAcrossYears(idx)) }}
+                        {{ formatValue(calculateYearTotal(year)) }}
                       </td>
                       <td
-                        class="p-3 text-[13px] text-right bg-blue-600 font-mono font-black sticky right-0 z-10 shadow-[-4px_0_12px_rgba(0,0,0,0.2)] rounded-br-3xl"
+                        class="p-3 text-[13px] text-right bg-blue-600 font-mono font-black text-white sticky right-0 z-10 shadow-[-4px_0_12px_rgba(43,84,255,0.2)] rounded-br-3xl"
                       >
                         {{ formatValue(calculateGrandTotalAcrossYears()) }}
                       </td>
@@ -401,7 +401,6 @@ import LoadingOverlay from "../common/LoadingOverlay.vue";
 import EmptyData from "../common/EmptyData.vue";
 import DashboardFilters from "./DashboardFilters.vue";
 import StaffRanking from "./StaffRanking.vue";
-import CompareModal from "./CompareModal.vue";
 
 // --- CONFIG ---
 const metrics = [
@@ -511,11 +510,18 @@ const visibleProductGroups = computed(() => {
         .filter((s) => s.data && s.data.some((val) => val > 0))
         .map((s) => s.name);
 
-      const filtered = productGroups.value.filter((g) => {
-        if (g === "all") return true;
-        return activeNames.includes(g);
+      // PURE DATA-DRIVEN: Only show categories that actually appear in the chart + "all"
+      const filtered = Array.from(new Set([
+        "all",
+        ...activeNames,
+      ]));
+      
+      // Sort to keep 'all' first, then others alphabetically
+      lastVisibleGroups.value = filtered.sort((a, b) => {
+        if (a === "all") return -1;
+        if (b === "all") return 1;
+        return a.localeCompare(b);
       });
-      lastVisibleGroups.value = filtered;
     }
   }
 
@@ -619,24 +625,36 @@ const updateUI = () => {
   const metricName = metricObj?.name || "Doanh thu";
 
   // Handle special case: SINGLE month or quarter selected -> Swap axis to show meaningful lines
+  // Handle special case: SINGLE point selected (1 Month, 1 Quarter, or 1 Year in Comparison)
   const isSinglePoint =
     (filterMode.value === "month" && selectedMonth.value !== "") ||
-    (filterMode.value === "quarter" && selectedQuarter.value !== "");
-  const timeLabel =
-    filterMode.value === "month"
-      ? `Tháng ${selectedMonth.value}`
-      : `Quý ${selectedQuarter.value}`;
+    (filterMode.value === "quarter" && selectedQuarter.value !== "") ||
+    (filterMode.value === "all" && isComparisonMode.value);
+
+  let timeLabel = "";
+  if (filterMode.value === "month") timeLabel = `Tháng ${selectedMonth.value}`;
+  else if (filterMode.value === "quarter")
+    timeLabel = `Quý ${selectedQuarter.value}`;
+  else if (filterMode.value === "all") timeLabel = "Cả năm";
 
   const comp = dashboardData.value.comparisonData?.[activeMetric.value];
   const cat = dashboardData.value.categoryData?.[activeMetric.value];
 
-  if (isSinglePoint && comp && cat && dataType.value !== "all") {
-    // Trend across YEARS for a specific category (In comparison context, use Line)
+  if (isSinglePoint && comp && cat) {
+    // Trend across YEARS for a specific time slice (Year, Quarter or Month)
     const transformedData = {
       labels: comp.years.map((y) => `Năm ${y}`),
       years: [timeLabel],
       yearData: {
-        [timeLabel]: comp.years.map((y) => comp.yearData[y][0]),
+        [timeLabel]: comp.years.map((y) => {
+          if (filterMode.value === "all") {
+            // Sum all months for the annual trend
+            const monthsData = comp.yearData[y] || [];
+            return monthsData.reduce((sum, val) => sum + (val || 0), 0);
+          }
+          // For single month/quarter, backend already returns the slice as index 0
+          return comp.yearData[y][0] || 0;
+        }),
       },
     };
     chartInstance.value.setOption(
@@ -1032,6 +1050,7 @@ watch(
     selectedQuarter,
     filterMode,
     viewMode,
+    isComparisonMode,
   ],
   () => {
     if (!suppressFetch.value) processData();

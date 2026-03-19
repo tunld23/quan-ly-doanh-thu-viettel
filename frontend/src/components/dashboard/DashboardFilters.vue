@@ -164,17 +164,21 @@
           <div class="flex flex-col items-start">
             <span
               class="text-[11px] font-bold text-gray-400 uppercase tracking-[0.12em] mb-2.5 px-0.5"
+              :class="{ 'text-slate-300': isComparisonMode }"
               >Thời gian</span
             >
             <div
-              class="flex items-center gap-3 bg-white p-1 rounded-2xl border border-gray-200/60 shadow-sm"
+              class="flex items-center gap-3 bg-white p-1 rounded-2xl border border-gray-200/60 shadow-sm transition-all duration-300"
             >
               <select
-                :value="selectedYear"
+                :value="isComparisonMode ? '' : selectedYear"
+                :disabled="isComparisonMode"
                 @change="$emit('update:selectedYear', $event.target.value)"
                 class="bg-transparent pl-3 pr-2 py-1.5 outline-none font-bold text-gray-700 cursor-pointer min-w-[100px] text-[14px]"
               >
-                <option value="">Tất cả</option>
+                <option value="">
+                  {{ isComparisonMode ? "Đang so sánh" : "Tất cả" }}
+                </option>
                 <option
                   v-for="year in availableYears"
                   :key="year"
@@ -265,18 +269,49 @@
             </div>
           </div>
 
-          <!-- Comparison Mode Button -->
-          <!-- <div class="flex items-center gap-2 ml-2 border-l border-gray-200 pl-4">
+          <div
+            class="flex items-center gap-2 ml-2 border-l border-gray-200 pl-4"
+          >
             <button
-              @click="$emit('open-compare')"
-              class="px-5 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-sm font-black shadow-lg shadow-slate-200 transition-all flex items-center gap-2 active:scale-95"
+              @click="$emit('toggle-compare')"
+              class="px-5 py-2.5 rounded-xl text-sm font-black transition-all duration-300 flex items-center gap-2 active:scale-95 shadow-lg"
+              :class="
+                isComparisonMode
+                  ? 'bg-blue-600 text-white shadow-blue-200 ring-2 ring-blue-600 ring-offset-2'
+                  : 'bg-slate-900 hover:bg-slate-800 text-white shadow-slate-200'
+              "
             >
-              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+              <svg
+                v-if="!isComparisonMode"
+                xmlns="http://www.w3.org/2000/svg"
+                class="h-4 w-4"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2.5"
+                  d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
+                />
               </svg>
-              So sánh
+              <svg
+                v-else
+                xmlns="http://www.w3.org/2000/svg"
+                class="h-4 w-4"
+                viewBox="0 0 20 20"
+                fill="currentColor"
+              >
+                <path
+                  fill-rule="evenodd"
+                  d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                  clip-rule="evenodd"
+                />
+              </svg>
+              {{ isComparisonMode ? "Đang so sánh" : "So sánh" }}
             </button>
-          </div> -->
+          </div>
         </div>
       </div>
     </div>
@@ -285,6 +320,7 @@
 
 <script setup>
 import { computed } from "vue";
+import { getShortName } from "../../utils/chartConfig";
 
 const props = defineProps({
   dataType: String,
@@ -300,6 +336,7 @@ const props = defineProps({
   availableQuarters: Array,
   metrics: Array,
   productGroups: Array,
+  isComparisonMode: Boolean,
 });
 
 const emit = defineEmits([
@@ -311,7 +348,7 @@ const emit = defineEmits([
   "update:viewMode",
   "update:selectedMonth",
   "update:selectedQuarter",
-  "open-compare",
+  "toggle-compare",
 ]);
 
 // --- CONSTANTS ---
@@ -348,14 +385,7 @@ const changeFilterMode = (modeId) => {
   emit("update:selectedQuarter", "");
 };
 
-const getCategoryName = (id) => {
-  if (id === "Internet truyền hình" || id === "Internet Truyền hình")
-    return "Internet";
-  const nid = String(id).toLowerCase();
-  if (nid === "all") return "Tất cả";
-  if (nid === "hddt") return "Hóa đơn (HDDT)";
-  return id;
-};
+const getCategoryName = (id) => getShortName(id);
 
 // --- COMPUTED ---
 

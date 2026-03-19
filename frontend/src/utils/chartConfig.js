@@ -14,6 +14,46 @@ const formatMoney = (val, isCurrency = true) => {
   return val.toLocaleString("vi-VN");
 };
 
+export const getShortName = (name) => {
+  if (name === "all") return "Tất cả";
+  if (name === "Internet truyền hình" || name === "Internet Truyền hình") return "Internet";
+  if (name === "Hóa đơn (HDDT)" || name === "Hóa đơn") return "HDDT";
+  if (name === "HDDTV") return "HDDT";
+  return name;
+};
+
+const CATEGORY_COLOR_MAP = {
+  CA: "#6366f1", // Indigo
+  "Internet truyền hình": "#10b981", // Green
+  Internet: "#10b981", // Green
+  HDDT: "#ec4899", // Pink
+  "Hóa đơn (HDDT)": "#ec4899",
+  "Hóa đơn": "#ec4899",
+  vTracking: "#f59e0b", // Amber
+  vBHXH: "#8b5cf6", // Violet
+  vContract: "#3b82f6", // Blue
+  HDDTV: "#06b6d4", // Cyan
+  EasyBooks: "#f43f5e", // Rose
+  Tendoo: "#84cc16", // Lime
+};
+
+const DEFAULT_COLORS = [
+  "#6366f1",
+  "#10b981",
+  "#ec4899",
+  "#f59e0b",
+  "#8b5cf6",
+  "#3b82f6",
+  "#06b6d4",
+  "#f43f5e",
+  "#84cc16",
+  "#ef4444",
+];
+
+const getCategoryColor = (name, index) => {
+  return CATEGORY_COLOR_MAP[name] || DEFAULT_COLORS[index % DEFAULT_COLORS.length];
+};
+
 export const getBaseChartOption = () => ({
   grid: { top: 20, right: 0, bottom: 20, left: 30, containLabel: true },
   tooltip: { trigger: "axis", axisPointer: { type: "shadow" } },
@@ -209,13 +249,14 @@ export const getComparisonOption = (data, metricName, metricId = "") => {
   const series = [];
 
   // Professional Gradient Blue (Decreasing intensity from Newest to Oldest)
+  // Professional Colors for Year-over-year comparison
   const colors = [
-    "#1D4ED8", // Dark Blue (Newest)
-    "#3B82F6", // Blue
-    "#60A5FA", // Light Blue
-    "#93C5FD", // Sky Blue
-    "#BFDBFE", // Faded Blue
-    "#DBEAFE", // Very Light Blue
+    "#1e293b", // Slate (Latest Year)
+    "#3b82f6", // Blue
+    "#10b981", // Emerald
+    "#f59e0b", // Amber
+    "#f43f5e", // Rose
+    "#8b5cf6", // Violet
   ];
 
   displayYears.forEach((y, idx) => {
@@ -418,7 +459,7 @@ export const getCategoryLineOption = (data, metricName, metricId = "") => {
           res += `<div style="display:flex;justify-content:space-between;gap:40px;margin-bottom:6px;align-items:center;">
                     <div style="display:flex;align-items:center;gap:8px;">
                       <span style="display:inline-block;width:10px;height:10px;border-radius:3px;background:${p.color}"></span>
-                      <span style="font-size:12px;color:#475569;font-weight:600;">${p.seriesName}</span>
+                      <span style="font-size:12px;color:#475569;font-weight:600;">${getShortName(p.seriesName)}</span>
                     </div>
                     <span style="font-weight:800;color:#1e293b;font-size:12px;font-family:monospace;">${formatMoney(p.value, isCurrency)}</span>
                   </div>`;
@@ -469,8 +510,9 @@ export const getCategoryLineOption = (data, metricName, metricId = "") => {
     },
     series: series.map((s, idx) => {
       const isSinglePoint = months.length === 1;
+      const seriesColor = getCategoryColor(s.name, idx);
       return {
-        name: s.name,
+        name: getShortName(s.name),
         type: isSinglePoint ? "bar" : "line",
         smooth: 0.4,
         barMaxWidth: 30,
@@ -479,7 +521,7 @@ export const getCategoryLineOption = (data, metricName, metricId = "") => {
         symbol: "circle",
         symbolSize: 10,
         itemStyle: {
-          color: colors[idx % colors.length],
+          color: seriesColor,
           borderWidth: 2,
           borderColor: "#fff",
           borderRadius: [4, 4, 0, 0],
@@ -495,7 +537,7 @@ export const getCategoryLineOption = (data, metricName, metricId = "") => {
         areaStyle: {
           opacity: 0.1,
           color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-            { offset: 0, color: colors[idx % colors.length] },
+            { offset: 0, color: seriesColor },
             { offset: 1, color: "rgba(255, 255, 255, 0)" },
           ]),
         },
@@ -518,20 +560,8 @@ export const getCategoryPieOption = (pieData, metricName, metricId = "") => {
   const total = pieData.reduce((acc, curr) => acc + curr.value, 0);
   const data = [...pieData].sort((a, b) => b.value - a.value);
 
-  const colors = [
-    "#3b82f6",
-    "#10b981",
-    "#f59e0b",
-    "#6366f1",
-    "#ec4899",
-    "#8b5cf6",
-    "#06b6d4",
-    "#f43f5e",
-    "#84cc16",
-  ];
-
   return {
-    color: colors,
+    color: data.map((item, idx) => getCategoryColor(item.name, idx)),
     tooltip: {
       trigger: "item",
       backgroundColor: "rgba(255, 255, 255, 0.98)",
@@ -540,7 +570,7 @@ export const getCategoryPieOption = (pieData, metricName, metricId = "") => {
       borderWidth: 0,
       extraCssText: "box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);",
       formatter: (p) => {
-        return `<div style="font-weight:800;color:#1e293b;margin-bottom:8px;border-bottom:1px solid #f1f5f9;padding-bottom:6px;">${p.name}</div>
+        return `<div style="font-weight:800;color:#1e293b;margin-bottom:8px;border-bottom:1px solid #f1f5f9;padding-bottom:6px;">${getShortName(p.name)}</div>
                 <div style="display:flex;justify-content:space-between;gap:30px;margin-bottom:6px;">
                   <span style="color:#64748b;font-size:12px;">Giá trị:</span>
                   <span style="font-weight:800;color:#1e293b;">${formatMoney(p.value, isCurrency)}</span>
@@ -569,7 +599,8 @@ export const getCategoryPieOption = (pieData, metricName, metricId = "") => {
         const item = data.find((d) => d.name === name);
         const percent = item ? ((item.value / total) * 100).toFixed(2) : 0;
         const value = item ? formatMoney(item.value, isCurrency) : 0;
-        return `${name.padEnd(12, " ")} : ${value} ( ${percent}% )`;
+        const displayName = getShortName(name);
+        return `${displayName.padEnd(12, " ")} : ${value} ( ${percent}% )`;
       },
       textStyle: {
         fontSize: 11,

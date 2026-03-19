@@ -9,7 +9,6 @@ export function useDashboard() {
   const isProcessing = ref(false);
   const globalLoading = ref(false);
   const loadingStatusText = ref("Đang kết nối Server...");
-  const showCompareModal = ref(false);
   const suppressFetch = ref(false);
   const toast = useToast();
 
@@ -39,6 +38,7 @@ export function useDashboard() {
     month: selectedMonth.value,
     quarter: selectedQuarter.value,
     mode: filterMode.value,
+    isComparisonMode: isComparisonMode.value,
   }));
 
   watch(activeMetric, (newMetric) => {
@@ -68,11 +68,7 @@ export function useDashboard() {
     }
   };
 
-  const openCompare = () => {
-    suppressFetch.value = true;
-    showCompareModal.value = true;
-    nextTick(() => suppressFetch.value = false);
-  };
+
 
   const getFetchParams = () => {
     let yearParam = selectedYear.value;
@@ -96,36 +92,6 @@ export function useDashboard() {
       const response = await dashboardService.getDashboardData(getFetchParams());
       const data = response.data;
 
-      // REQUIREMENT: Map "Internet truyền hình" (and variants) to shorter "Internet" for better UI
-      const rename = (name) => 
-        (name === "Internet truyền hình" || name === "Internet Truyền hình") ? "Internet" : name;
-
-      if (data.categoryData) {
-        Object.values(data.categoryData).forEach(m => {
-          if (m.categories) m.categories = m.categories.map(rename);
-          if (m.series) m.series.forEach(s => s.name = rename(s.name));
-          if (m.pieData) m.pieData.forEach(p => p.name = rename(p.name));
-        });
-      }
-
-      if (data.comparisonData) {
-        Object.values(data.comparisonData).forEach(m => {
-          if (m.categories) m.categories = m.categories.map(rename);
-        });
-      }
-
-      if (data.rankings) {
-        Object.values(data.rankings).forEach(list => {
-          list.forEach(item => {
-            if (item.category) item.category = rename(item.category);
-          });
-        });
-      }
-
-      if (data.targetAchievement && data.targetAchievement.labels) {
-        data.targetAchievement.labels = data.targetAchievement.labels.map(rename);
-      }
-
       dashboardData.value = data;
       syncAvailableFilters(data);
       return data;
@@ -138,9 +104,9 @@ export function useDashboard() {
   };
 
   return {
-    isProcessing, globalLoading, loadingStatusText, showCompareModal, suppressFetch, dashboardData, rankings, productGroups,
+    isProcessing, globalLoading, loadingStatusText, suppressFetch, dashboardData, rankings, productGroups,
     activeMetric, dataType, sourceType, selectedYear, selectedMonth, selectedQuarter, filterMode, isComparisonMode, viewMode,
     availableYears, availableMonths, availableQuarters, filters,
-    openCompare, loadData,
+    loadData,
   };
 }
