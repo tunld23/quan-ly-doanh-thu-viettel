@@ -33,7 +33,10 @@ const fetchYears = async () => {
 
 onMounted(() => fetchYears());
 
-const requiresManualDate = computed(() => ["Tendoo", "vContract", "vTracking"].includes(selectedType.value));
+const requiresManualDate = computed(() => {
+  if (["Tendoo", "vContract", "vTracking"].includes(selectedType.value)) return false;
+  return false; // For now, let's keep it simple. If other types have date in Excel, they don't need manual input either.
+});
 const productGroups = computed(() => productGroupsMap[selectedSource.value] || []);
 
 watch(selectedSource, (newSource) => {
@@ -100,7 +103,7 @@ const rules = {
 };
 const defaultRule = [
   { label: 'Điều kiện', rule: 'Cột AR phải chứa tên nhóm Sp' },
-  { label: 'Kỳ hạn', rule: 'Chọn thủ công ở trên' },
+  { label: 'Kỳ hạn', rule: 'Tự động lấy tháng/năm hiện tại' },
   { label: 'Sản phẩm', rule: 'Cột B (Mã) & C (Mặt hàng)' }
 ];
 </script>

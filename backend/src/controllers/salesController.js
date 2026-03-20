@@ -20,13 +20,23 @@ export const importSales = async (req, res) => {
     const sData = await processSalesImportExcel(buffer, type);
 
     // Auto-detect months and years from data if not provided
-    const detectedMonths = months
+    let detectedMonths = months
       ? months.split(",").map((m) => m.trim().padStart(2, "0"))
-      : [...new Set(sData.map((s) => s.thang))];
+      : [...new Set(sData.map((s) => s.thang))].filter(m => m !== null);
+    
+    // Fallback to current month if no month detected
+    if (detectedMonths.length === 0) {
+      detectedMonths = [String(new Date().getMonth() + 1).padStart(2, "0")];
+    }
 
-    const detectedYears = year
+    let detectedYears = year
       ? [parseInt(year)]
-      : [...new Set(sData.map((s) => s.nam))];
+      : [...new Set(sData.map((s) => s.nam))].filter(y => y !== null);
+
+    // Fallback to current year if no year detected
+    if (detectedYears.length === 0) {
+      detectedYears = [new Date().getFullYear()];
+    }
 
     if (detectedMonths.length === 0 || detectedYears.length === 0) {
       return res

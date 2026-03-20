@@ -448,8 +448,20 @@ export const getCategoryLineOption = (data, metricName, metricId = "") => {
       backgroundColor: "rgba(255, 255, 255, 0.98)",
       padding: [12, 16],
       extraCssText:
-        "box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1); border-radius: 12px; border: none; min-width: 280px;",
+        "box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1); border-radius: 12px; border: none; min-width: 200px;",
       formatter: (params) => {
+        if (!params || params.length === 0) return "";
+        const isTransposed = months.length === 1;
+
+        if (isTransposed) {
+          const p = params[0];
+          return `<div style="font-weight:800;margin-bottom:8px;color:#1e293b;font-size:14px;border-bottom:1px solid #f1f5f9;padding-bottom:8px;">${p.seriesName}</div>
+                  <div style="display:flex;justify-content:space-between;gap:20px;align-items:center;">
+                    <span style="font-size:12px;color:#475569;font-weight:600;">${getShortName(p.name)}</span>
+                    <span style="font-weight:800;color:#1e293b;font-size:13px;font-family:monospace;">${formatMoney(p.value, isCurrency)}</span>
+                  </div>`;
+        }
+
         let res = `<div style="font-weight:800;margin-bottom:12px;color:#1e293b;font-size:14px;border-bottom:1px solid #f1f5f9;padding-bottom:10px;display:flex;justify-content:space-between;align-items:center;">
                     <span>${params[0].name}</span>
                     <span style="font-size:10px;background:#f1f5f9;padding:2px 6px;border-radius:4px;color:#64748b;">${metricName}</span>
@@ -472,20 +484,21 @@ export const getCategoryLineOption = (data, metricName, metricId = "") => {
       borderColor: "#e2e8f0",
       borderWidth: 1,
       top: 40,
-      bottom: 85,
+      bottom: months.length === 1 ? 95 : 85, // Extra space for labels if categories on X
       left: 10,
       right: 10,
       containLabel: true,
     },
     xAxis: {
       type: "category",
-      data: months,
+      data: months.length === 1 ? categories : months,
       boundaryGap: true,
       axisLabel: {
         fontSize: 10,
         color: "#64748b",
         fontWeight: "bold",
         margin: 15,
+        rotate: months.length === 1 ? 35 : 0,
       },
       axisLine: { lineStyle: { color: "#e2e8f0" } },
       axisTick: { show: false },
@@ -508,7 +521,39 @@ export const getCategoryLineOption = (data, metricName, metricId = "") => {
         lineStyle: { color: "#f1f5f9", type: "dashed" },
       },
     },
-    series: series.map((s, idx) => {
+    series:
+      months.length === 1
+        ? [
+            {
+              name: months[0],
+              type: categories.length === 1 ? "bar" : "line",
+              smooth: 0.4,
+              showSymbol: true,
+              symbol: "circle",
+              symbolSize: 10,
+              barMaxWidth: 40,
+              barWidth: "30%",
+              itemStyle: {
+                color: "#6366f1",
+                borderWidth: 2,
+                borderColor: "#fff",
+                borderRadius: [4, 4, 0, 0],
+              },
+              data: categories.map((cat) => {
+                const s = series.find((ser) => ser.name === cat);
+                return s ? s.data[0] : 0;
+              }),
+              lineStyle: { width: 4, cap: "round" },
+              areaStyle: {
+                opacity: 0.1,
+                color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+                  { offset: 0, color: "#6366f1" },
+                  { offset: 1, color: "rgba(255, 255, 255, 0)" },
+                ]),
+              },
+            },
+          ]
+        : series.map((s, idx) => {
       const isSinglePoint = months.length === 1;
       const seriesColor = getCategoryColor(s.name, idx);
       return {

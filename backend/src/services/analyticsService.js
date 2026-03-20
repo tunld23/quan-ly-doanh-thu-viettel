@@ -9,10 +9,13 @@
  */
 export function filterDashboardData(data, filters) {
   const { year, month, quarter, mode } = filters;
-  
+  const targetYears = year && String(year).includes(",") 
+    ? year.split(",").map(y => String(y.trim())) 
+    : (year ? [String(year)] : []);
+
   return data.filter(item => {
-    // Year filter (if single year)
-    if (year && !Array.isArray(year) && String(item.nam) !== String(year)) return false;
+    // Year filter
+    if (targetYears.length > 0 && !targetYears.includes(String(item.nam))) return false;
     
     // Month filter
     if (mode === "month" && month && parseInt(item.thang) !== parseInt(month)) return false;
@@ -31,7 +34,7 @@ export function filterDashboardData(data, filters) {
  * Compute staff rankings with growth indicators
  */
 export function computeStaffRankings(allData, filters, metricField) {
-  const currentYear = parseInt(filters.year);
+  const currentYear = filters.primaryYear || parseInt(filters.year);
 
   const getRankedList = (targetYear) => {
     const stats = {};
@@ -209,8 +212,8 @@ export function aggregateChartData(filteredData, allData, filters, metricField) 
  */
 export function aggregateCategoryData(allData, filters, metricField) {
   const { year, month, quarter, mode } = filters;
-  const targetYear = year ? parseInt(year) : NaN;
-  const isAllYears = isNaN(targetYear);
+  const targetYears = year ? String(year).split(',').map(y => parseInt(y.trim())) : [];
+  const isNoYear = targetYears.length === 0 || isNaN(targetYears[0]);
 
   // 1. Group data into a Map for efficiency and accuracy (O(n))
   const dataMap = new Map();
@@ -218,7 +221,7 @@ export function aggregateCategoryData(allData, filters, metricField) {
 
   allData.forEach(item => {
     // a. Filter by Year
-    if (!isAllYears && parseInt(item.nam) !== targetYear) return;
+    if (!isNoYear && !targetYears.includes(parseInt(item.nam))) return;
     
     // b. Filter by Month/Quarter
     const itemMonth = parseInt(item.thang);

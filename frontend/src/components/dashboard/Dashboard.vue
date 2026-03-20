@@ -23,15 +23,18 @@
       @toggle-compare="isComparisonMode = !isComparisonMode"
     />
 
-
-
     <!-- Main Chart & Ranking Card -->
     <div
       class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden mb-6 min-h-[520px] flex flex-col relative"
     >
       <!-- ACTUAL VIEW: Chart + Ranking + Table -->
       <div
-        v-show="viewMode === 'actual' && dashboardData && hasActualData && !isProcessing"
+        v-show="
+          viewMode === 'actual' &&
+          dashboardData &&
+          hasActualData &&
+          !isProcessing
+        "
         class="p-8 bg-white flex-1 w-full space-y-12"
       >
         <!-- TOP ROW: Line Chart & Pie Chart -->
@@ -291,7 +294,12 @@
 
       <!-- TARGET VIEW: 2 Charts Side-by-Side -->
       <div
-        v-show="viewMode === 'target' && dashboardData && hasActualData && !isProcessing"
+        v-show="
+          viewMode === 'target' &&
+          dashboardData &&
+          hasActualData &&
+          !isProcessing
+        "
         class="p-6 grid grid-cols-1 lg:grid-cols-2 gap-8 bg-white flex-1 w-full"
       >
         <!-- Revenue Achievement -->
@@ -511,11 +519,8 @@ const visibleProductGroups = computed(() => {
         .map((s) => s.name);
 
       // PURE DATA-DRIVEN: Only show categories that actually appear in the chart + "all"
-      const filtered = Array.from(new Set([
-        "all",
-        ...activeNames,
-      ]));
-      
+      const filtered = Array.from(new Set(["all", ...activeNames]));
+
       // Sort to keep 'all' first, then others alphabetically
       lastVisibleGroups.value = filtered.sort((a, b) => {
         if (a === "all") return -1;
@@ -629,9 +634,8 @@ const updateUI = () => {
   // Handle special case: SINGLE month or quarter selected -> Swap axis to show meaningful lines
   // Handle special case: SINGLE point selected (1 Month, 1 Quarter, or 1 Year in Comparison)
   const isSinglePoint =
-    (filterMode.value === "month" && selectedMonth.value !== "") ||
-    (filterMode.value === "quarter" && selectedQuarter.value !== "") ||
-    (filterMode.value === "all" && isComparisonMode.value);
+    isComparisonMode.value &&
+    (filterMode.value === "month" || filterMode.value === "quarter");
 
   let timeLabel = "";
   if (filterMode.value === "month") timeLabel = `Tháng ${selectedMonth.value}`;

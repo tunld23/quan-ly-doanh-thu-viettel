@@ -57,13 +57,18 @@ export const getDashboardData = async (req, res) => {
       source = "all",
       viewMode: reqViewMode
     } = req.query;
-    
+
     const db = await getDb();
     const recordset = await fetchRawDashboardData(db, { type, year, source });
+    
+    const yearList = year && String(year).includes(",") 
+      ? year.split(",").map(y => parseInt(y.trim())) 
+      : (year ? [parseInt(year)] : []);
+    const primaryYear = yearList.length > 0 ? Math.max(...yearList) : NaN;
 
-    const primaryYear = year && year.includes(",") ? year.split(",")[0] : year;
     const analyticsFilters = {
-      year: primaryYear,
+      year: year, // Full string for multi-year aggregation
+      primaryYear, 
       month,
       quarter,
       mode: mode || (month ? "month" : quarter ? "quarter" : "all"),
