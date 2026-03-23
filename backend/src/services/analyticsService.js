@@ -114,7 +114,21 @@ export function aggregateComparisonData(allData, filters, metricField) {
     const quarters = quarter ? [parseInt(quarter)] : [1,2,3,4];
     quarters.forEach(q => { labels.push(`Quý ${q}`); timeUnits.push({ q }); });
   } else {
-    for (let m = 1; m <= 12; m++) { labels.push(`T${m}`); timeUnits.push({ m }); }
+    // Mode 'all': Only show months that have data across ANY year
+    const activeMonths = new Set();
+    allData.forEach(item => {
+      if (item[metricField] > 0) activeMonths.add(parseInt(item.thang));
+    });
+    
+    // Sort active months
+    const sortedMonths = Array.from(activeMonths).sort((a,b) => a - b);
+    
+    // Fallback: If no data, show nothing or current month
+    if (sortedMonths.length > 0) {
+      sortedMonths.forEach(m => { labels.push(`T${m}`); timeUnits.push({ m }); });
+    } else {
+      for (let m = 1; m <= 12; m++) { labels.push(`T${m}`); timeUnits.push({ m }); }
+    }
   }
 
   const getAggregation = (data, y, m, q) => {
@@ -165,12 +179,24 @@ export function aggregateChartData(filteredData, allData, filters, metricField) 
         prevValues.push(pVal);
       });
     } else {
-      // Monthly Breakdown
-      for (let m = 1; m <= 12; m++) {
+      // Monthly Breakdown - Only show months that have data in EITHER current or previous year
+      const activeMonths = new Set();
+      filteredData.forEach(i => { if (i[metricField] > 0) activeMonths.add(parseInt(i.thang)); });
+      allData.forEach(i => {
+        if (i.nam === prevYear && i[metricField] > 0) activeMonths.add(parseInt(i.thang));
+      });
+      
+      const sortedMonths = Array.from(activeMonths).sort((a,b) => a - b);
+      if (sortedMonths.length === 0) {
+        // Fallback to current month if no data
+        sortedMonths.push(new Date().getMonth() + 1);
+      }
+
+      sortedMonths.forEach(m => {
         labels.push(`T${m}/${year}`);
         values.push(filteredData.filter(i => parseInt(i.thang) === m).reduce((s, i) => s + (i[metricField] || 0), 0));
         prevValues.push(allData.filter(i => i.nam === prevYear && parseInt(i.thang) === m).reduce((s, i) => s + (i[metricField] || 0), 0));
-      }
+      });
     }
   } else if (mode === "quarter") {
     const targetQs = quarter ? [parseInt(quarter)] : [1,2,3,4];
@@ -247,28 +273,44 @@ export function aggregateCategoryData(allData, filters, metricField) {
 
   const categories = Array.from(foundCategories).sort();
   
-  // 2. Filter available months for the series/labels if a time filter is active
-  let months = Array.from({ length: 12 }, (_, i) => i + 1);
+  // 2. Determine which months to show (Only months that have data in them, or filtered by selection)
+  let months = [];
   if (mode === "month" && month) {
     months = [parseInt(month)];
   } else if (mode === "quarter" && quarter) {
     const q = parseInt(quarter);
     months = [(q - 1) * 3 + 1, (q - 1) * 3 + 2, (q - 1) * 3 + 3];
+  } else {
+    // Collect all months that have ANY data across ANY category
+    const activeMonths = new Set();
+    dataMap.forEach((valArray) => {
+       for (let m = 1; m <= 12; m++) {
+         if (valArray[m] > 0) activeMonths.add(m);
+       }
+    });
+    months = Array.from(activeMonths).sort((a, b) => a - b);
+    
+    // Fallback: If no data at all, just show current month or a placeholder
+    if (months.length === 0) {
+       months = [new Date().getMonth() + 1];
+    }
   }
   const series = [];
   const pieData = [];
+  const activeSeriesCategories = new Set();
 
   categories.forEach(cat => {
     const monthlyValues = months.map(m => dataMap.get(cat)[m]);
-    
-    series.push({
-      name: cat,
-      data: monthlyValues
-    });
-
     const yearTotal = monthlyValues.reduce((a, b) => a + b, 0);
-    // Only show categories in PIE chart if they have non-zero value
-    if (yearTotal > 0.01) { 
+    
+    // Chỉ đưa vào series nếu có dữ liệu > 0
+    if (yearTotal > 0.01) {
+      activeSeriesCategories.add(cat);
+      series.push({
+        name: cat,
+        data: monthlyValues
+      });
+
       pieData.push({
         name: cat,
         value: yearTotal
@@ -276,8 +318,11 @@ export function aggregateCategoryData(allData, filters, metricField) {
     }
   });
 
+  // Quan trọng: Chỉ trả về danh sách categories thực sự có bóng dáng trong series
+  const finalCategories = categories.filter(c => activeSeriesCategories.has(c));
+
   return {
-    categories,
+    categories: finalCategories,
     months: months.map(m => `T${m}`),
     series,
     pieData: pieData.sort((a, b) => b.value - a.value)

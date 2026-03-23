@@ -41,19 +41,26 @@ export const updateSummaryReport = async () => {
         d.product_group, 
         d.source_type,
         d.amount as qty,
-        -- Sử dụng giá từ đúng tháng/năm, nếu không có thì lấy giá gần nhất (MAX) của sản phẩm đó
+        -- Price * Quantity (Unit price from Product table)
         ISNULL(ISNULL(p.price, p_fallback.price), 0) * d.amount as amt
       FROM detail d
       LEFT JOIN (
-         SELECT ma_hang, tr_year, tr_month, MAX(without_vat) as price
+         -- Lấy giá của sản phẩm trong đúng tháng/năm
+         SELECT ma_hang, mat_hang, tr_year, tr_month, MAX(without_vat) as price
          FROM product
-         GROUP BY ma_hang, tr_year, tr_month
-      ) p ON d.ma_hang = p.ma_hang AND d.tr_year = p.tr_year AND d.tr_month = p.tr_month
+         GROUP BY ma_hang, mat_hang, tr_year, tr_month
+      ) p ON d.ma_hang = p.ma_hang AND d.mat_hang = p.mat_hang AND d.tr_year = p.tr_year AND d.tr_month = p.tr_month
       LEFT JOIN (
-         SELECT ma_hang, MAX(without_vat) as price
-         FROM product
-         GROUP BY ma_hang
-      ) p_fallback ON d.ma_hang = p_fallback.ma_hang
+         -- Fallback: Nếu không có giá tháng này, lấy giá mới nhất của sản phẩm đó
+         SELECT ma_hang, mat_hang, MAX(without_vat) as price
+         FROM product p1
+         WHERE tr_year * 100 + CAST(tr_month AS INT) = (
+            SELECT MAX(tr_year * 100 + CAST(tr_month AS INT)) 
+            FROM product p2 
+            WHERE p2.ma_hang = p1.ma_hang AND p2.mat_hang = p1.mat_hang
+         )
+         GROUP BY ma_hang, mat_hang
+      ) p_fallback ON d.ma_hang = p_fallback.ma_hang AND d.mat_hang = p_fallback.mat_hang
       
       UNION ALL
       

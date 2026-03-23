@@ -15,7 +15,7 @@ export const importProducts = async (req, res) => {
 
     const paddedMonth = String(month).padStart(2, "0");
     const buffer = req.file.buffer;
-    const pData = await processProductImportExcel(buffer, source);
+    const { data: pData, summary } = await processProductImportExcel(buffer, source);
 
     if (pData.length === 0) {
       return res
@@ -48,10 +48,17 @@ export const importProducts = async (req, res) => {
       table.columns.add("vat", sql.Float, { nullable: true });
 
       const seen = new Set();
+      let importedCount = 0;
+      let duplicateCount = 0;
+
       for (const p of pData) {
-        const pk = `${p.ma_hang.toLowerCase()}|${p.mat_hang.toLowerCase()}|${(p.source_type || source).toLowerCase()}`;
-        if (seen.has(pk)) continue;
-        seen.add(pk);
+        const key = `${p.ma_hang}-${p.mat_hang}`;
+        if (seen.has(key)) {
+          duplicateCount++;
+          continue;
+        }
+        seen.add(key);
+        importedCount++;
 
         table.rows.add(
           parseInt(year),
@@ -71,9 +78,13 @@ export const importProducts = async (req, res) => {
       }
 
       await transaction.commit();
-      console.log(`Import Success: ${pData.length} items.`);
       res.json({
-        message: `Successfully imported ${pData.length} ${source.toUpperCase()} products for ${paddedMonth}/${year}`,
+        message: `Successfully imported ${importedCount} ${source.toUpperCase()} products for ${paddedMonth}/${year}`,
+        summary: {
+          ...summary,
+          imported: importedCount,
+          duplicateSkipped: duplicateCount
+        }
       });
     } catch (err) {
       if (transaction) {

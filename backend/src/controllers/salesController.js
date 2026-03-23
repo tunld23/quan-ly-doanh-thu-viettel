@@ -17,7 +17,7 @@ export const importSales = async (req, res) => {
     }
 
     const buffer = req.file.buffer;
-    const sData = await processSalesImportExcel(buffer, type);
+    const { data: sData, summary } = await processSalesImportExcel(buffer, type, source);
 
     // Auto-detect months and years from data if not provided
     let detectedMonths = months
@@ -142,6 +142,7 @@ export const importSales = async (req, res) => {
 
       res.json({
         message: `Successfully imported ${source.toUpperCase()} sales for ${type}`,
+        summary,
       });
     } catch (err) {
       if (transaction) {

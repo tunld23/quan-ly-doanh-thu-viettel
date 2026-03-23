@@ -39,16 +39,23 @@ async function initDb(db) {
         source_type NVARCHAR(50) NOT NULL DEFAULT 'dealer',
         with_vat FLOAT,
         without_vat FLOAT,
-        vat FLOAT,
-        PRIMARY KEY (tr_year, tr_month, ma_hang, mat_hang, source_type)
+        vat FLOAT
       );
     END
     ELSE
     BEGIN
+       -- Ensure ID column is REMOVED if it exists (at user request)
+       IF EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('product') AND name = 'id')
+       BEGIN
+          DECLARE @pk_name_id NVARCHAR(255);
+          SELECT @pk_name_id = name FROM sys.key_constraints WHERE type = 'PK' AND parent_object_id = OBJECT_ID('product');
+          IF @pk_name_id IS NOT NULL EXEC('ALTER TABLE product DROP CONSTRAINT ' + @pk_name_id);
+          ALTER TABLE product DROP COLUMN id;
+       END
+
        -- Remove product_line if it exists
        IF EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('product') AND name = 'product_line')
        BEGIN
-          -- Need to handle PK if it included product_line (unlikely based on previous schema but safe)
           ALTER TABLE product DROP COLUMN product_line;
        END
     END
@@ -101,9 +108,9 @@ async function initDb(db) {
        -- Check if id column exists and drop it if we want to remove it
        IF EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('adjustments') AND name = 'id')
        BEGIN
-         DECLARE @pk_name NVARCHAR(255);
-         SELECT @pk_name = name FROM sys.key_constraints WHERE type = 'PK' AND parent_object_id = OBJECT_ID('adjustments');
-         IF @pk_name IS NOT NULL EXEC('ALTER TABLE adjustments DROP CONSTRAINT ' + @pk_name);
+         DECLARE @pk_name_adj NVARCHAR(255);
+         SELECT @pk_name_adj = name FROM sys.key_constraints WHERE type = 'PK' AND parent_object_id = OBJECT_ID('adjustments');
+         IF @pk_name_adj IS NOT NULL EXEC('ALTER TABLE adjustments DROP CONSTRAINT ' + @pk_name_adj);
          ALTER TABLE adjustments DROP COLUMN id;
          ALTER TABLE adjustments ALTER COLUMN created_at DATETIME NOT NULL;
          ALTER TABLE adjustments ADD CONSTRAINT PK_adjustments_created PRIMARY KEY (created_at);

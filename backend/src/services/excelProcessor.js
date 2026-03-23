@@ -8,25 +8,27 @@ const EXCEL_CONFIGS = {
     headerRow: 6, // Dòng 7
     requiredMarkers: ["mã hàng", "mặt hàng", "tiền có vat"],
     dataMapping: (row, source) => {
-      const ma_hang = String(row[1] || "") // Cột B
-        .trim()
-        .toLowerCase();
-      const mat_hang = String(row[2] || "") // Cột C
-        .trim()
-        .toLowerCase();
+      const ma_hang = String(row[1] || "").trim().toLowerCase();
+      const mat_hang = String(row[2] || "").trim().toLowerCase();
       const qty = parseFloat(String(row[4] || 0).replace(/[^\d.-]/g, "")) || 1; // Cột E
 
       if (!ma_hang || qty === 0) return null;
 
+      const cleanNum = (val) => {
+        if (!val) return 0;
+        let str = String(val).trim();
+        const isNegative = str.includes('-') || (str.startsWith('(') && str.endsWith(')'));
+        const digits = str.replace(/\D/g, ''); 
+        const num = parseFloat(digits) || 0;
+        return (isNegative ? -num : num) / qty; // Chia cho số lượng
+      };
+
       return {
         ma_hang,
         mat_hang,
-        with_vat:
-          (parseFloat(String(row[10] || 0).replace(/[^\d.-]/g, "")) || 0) / qty, // Cột K
-        without_vat:
-          (parseFloat(String(row[11] || 0).replace(/[^\d.-]/g, "")) || 0) / qty, // Cột L
-        vat:
-          (parseFloat(String(row[12] || 0).replace(/[^\d.-]/g, "")) || 0) / qty, // Cột M
+        with_vat: cleanNum(row[10]), // Cột K
+        without_vat: cleanNum(row[11]), // Cột L
+        vat: cleanNum(row[12]), // Cột M
         source_type: source,
       };
     },
@@ -43,9 +45,17 @@ const EXCEL_CONFIGS = {
       })
     },
     CA: {
-      headerRow: 10, // Dòng 11
-      requiredMarkers: ["ngày câp", "nhân viên đấu nối", "hình thức hòa mạng"],
+      headerRow: 10, // Dòng 11 (Mặc định cho Dealer)
+      requiredMarkers: ["ngày", "nhân viên", "hòa mạng"],
       parse: (row) => {
+        // Cột V (index 21) là loại yêu cầu / dịch vụ
+        const type = String(row[21] || "").trim().toLowerCase();
+        const isTargetType = type.includes("gia hạn") || type.includes("cấp mới");
+        
+        if (!isTargetType) {
+          return { rawUser: "skip" };
+        }
+
         const split = splitMaMat(row[22]); // Cột W (Mã - Mặt)
         return {
           rawDate: row[16], // Cột Q (Ngày đấu nối)
@@ -73,6 +83,12 @@ const EXCEL_CONFIGS = {
       headerRow: 12, // Dòng 13
       requiredMarkers: ["nhân viên đấu nối", "ngày đấu nối", "hthm"],
       parse: (row) => {
+        // Cột V (index 21) là loại dịch vụ
+        const type = String(row[21] || "").trim();
+        if (type !== "Gia hạn" && type !== "Cấp mới") {
+          return { rawUser: "skip" };
+        }
+
         const split = splitMaMat(row[15]); // Cột P (HTHM)
         return {
           rawDate: row[26], // Cột AA (Ngày đấu nối)
@@ -142,6 +158,30 @@ const EXCEL_CONFIGS = {
         };
       },
     },
+    vContract: {
+      headerRow: 5, // Dòng 6
+      requiredMarkers: ["gói cước", "ngày đấu nối", "nhân viên"],
+      parse: (row) => {
+        const pValue = String(row[15] || "").trim();
+        const split = splitMaMat(pValue);
+        return {
+          rawDate: row[21], // Cột V
+          rawUser: row[7], // Cột H
+          rawMa: split.ma,
+          rawMat: split.mat || split.ma, // Nếu không có dấu gạch ngang, dùng chung giá trị
+        };
+      },
+    },
+    vTracking: {
+      headerRow: 5, // Dòng 6
+      requiredMarkers: ["gói cước", "ngày tạo thuê bao", "nhân viên"],
+      parse: (row) => ({
+        rawDate: row[20], // Cột U
+        rawUser: row[25], // Cột Z
+        rawMa: String(row[17] || "").trim().toLowerCase(), // Cột R
+        rawMat: String(row[18] || "").trim().toLowerCase(), // Cột S
+      }),
+    },
     AM_General: {
       headerRow: 6, // Dòng 7
       requiredMarkers: [
@@ -157,9 +197,7 @@ const EXCEL_CONFIGS = {
         if (marker === "") {
           isValid = true; // Cho phép nhập nếu cột AR để trống
         } else {
-          if (groupType === "vContract" && marker === "hợp đồng điện tử") isValid = true;
           if (groupType === "Tendoo" && marker === "pmqlbh_tendoo") isValid = true;
-          if (groupType === "vTracking" && marker === "v-tracking") isValid = true;
         }
 
         if (!isValid) return { rawDate: null, rawUser: "skip", rawMa: null, rawMat: null };
@@ -191,13 +229,21 @@ export async function processProductImportExcel(buffer, source = "dealer") {
     "Danh mục Sản phẩm",
   );
 
-  return rows
+  const items = rows
     .slice(config.headerRow + 1)
     .map((row) => config.dataMapping(row, source))
     .filter((p) => p !== null);
+
+  return {
+    data: items,
+    summary: {
+      totalRows: rows.length - (config.headerRow + 1),
+      invalidSkipped: (rows.length - (config.headerRow + 1)) - items.length
+    }
+  };
 }
 
-export async function processSalesImportExcel(buffer, groupType) {
+export async function processSalesImportExcel(buffer, groupType, source = "dealer") {
   const { rows } = readExcel(buffer);
   
   // Xử lý các nhóm AM có thể dùng chung cấu hình hoặc cấu hình mặc định nếu chưa định nghĩa
@@ -206,29 +252,40 @@ export async function processSalesImportExcel(buffer, groupType) {
   // Nếu không tìm thấy nhóm cụ thể, dùng "CA" làm mẫu cho các file AM (hoặc chỉnh lại theo thực tế)
   let config = EXCEL_CONFIGS.SALES_DETAIL[activeType];
   if (!config) {
-     if (["Tendoo", "vContract", "vTracking"].includes(groupType)) {
+     if (["Tendoo"].includes(groupType)) {
         config = EXCEL_CONFIGS.SALES_DETAIL["AM_General"];
      } else {
         config = EXCEL_CONFIGS.SALES_DETAIL["CA"]; 
      }
   }
 
-  validateHeader(rows, config.headerRow, config.requiredMarkers, groupType);
+  // Tự động tìm dòng tiêu đề nếu dòng tiêu đề mặc định không khớp
+  const detectedIdx = detectHeaderIndex(rows, config.requiredMarkers);
+  const actualHeaderRow = detectedIdx !== -1 ? detectedIdx : config.headerRow;
+
+  validateHeader(rows, actualHeaderRow, config.requiredMarkers, groupType);
 
   const results = [];
   const skipReasons = {
     wrongMarker: 0,
     noMaHang: 0,
-    invalidTinh: 0
+    invalidTinh: 0,
+    emptyRow: 0
   };
 
-  for (let i = config.headerRow + 1; i < rows.length; i++) {
+  for (let i = actualHeaderRow + 1; i < rows.length; i++) {
     const row = rows[i];
-    if (!row || row.length === 0) continue;
+    if (!row || row.length === 0) {
+      skipReasons.emptyRow++;
+      continue;
+    }
     
     // Bỏ qua dòng trắng (không có dữ liệu ở các cột chính)
     const isRowEmpty = !row.some(cell => cell !== "" && cell !== null && cell !== undefined);
-    if (isRowEmpty) continue;
+    if (isRowEmpty) {
+      skipReasons.emptyRow++;
+      continue;
+    }
 
     const parsed = config.parse(row, groupType);
     if (parsed.rawUser === "skip") {
@@ -275,7 +332,15 @@ export async function processSalesImportExcel(buffer, groupType) {
     throw error;
   }
 
-  return results;
+  return {
+    data: results,
+    summary: {
+      totalRows: rows.length - (config.headerRow + 1),
+      imported: results.length,
+      skipped: skipReasons.wrongMarker + skipReasons.invalidTinh + skipReasons.noMaHang + skipReasons.emptyRow,
+      reasons: skipReasons
+    }
+  };
 }
 
 /**
@@ -316,11 +381,6 @@ function validateHeader(rows, index, markers, label) {
   }
 }
 
-function detectProductGroup(productLine) {
-  // Legacy helper - no longer needed with direct assignment
-  return productLine;
-}
-
 function splitMaMat(input) {
   if (!input) return { ma: "", mat: "" };
   const str = String(input).trim();
@@ -339,26 +399,52 @@ function splitMaMat(input) {
 
 function parseExcelDate(val) {
   if (!val) return { thang: null, nam: null };
+
   if (typeof val === "number") {
+    // Excel number format (e.g., 46091)
     const date = new Date(Math.round((val - 25569) * 86400 * 1000));
     return { thang: date.getUTCMonth() + 1, nam: date.getUTCFullYear() };
   }
-  
-  const str = String(val).trim();
-  
-  // Try standard parsing first for formats like "March 12, 2026 8:28:52 PM"
-  const d = new Date(str);
-  if (!isNaN(d.getTime())) {
+
+  let rawStr = String(val).trim();
+  if (!rawStr) return { thang: null, nam: null };
+
+  // Xử lý định dạng ngày có giờ (ví dụ: 09/03/2026 15:40:06)
+  if (rawStr.includes(" ") && (rawStr.includes("/") || rawStr.includes("-"))) {
+    rawStr = rawStr.split(" ")[0];
+  }
+
+  // Ưu tiên parse thủ công định dạng DD/MM/YYYY (Việt Nam)
+  const parts = rawStr.split(/[\/\.-]/);
+  if (parts.length >= 3) {
+    let year = parseInt(parts[0].length === 4 ? parts[0] : parts[2]);
+    let month = parseInt(parts[1]); 
+    let day = parseInt(parts[0].length === 4 ? parts[2] : parts[0]);
+
+    // Heuristic: Nếu tháng > 12 -> Khả năng cao là định dạng MM/DD/YYYY
+    if (month > 12) {
+      if (day <= 12) {
+        month = day;
+        day = parseInt(parts[1]);
+      }
+    }
+    
+    if (month >= 1 && month <= 12 && year > 1900) {
+      return { thang: month, nam: year };
+    }
+  }
+
+  // Fallback 1: Thử parse chuẩn JS (handles "March 3, 2026", ISO, etc.)
+  const d = new Date(val);
+  if (!isNaN(d.getTime()) && d.getFullYear() > 1970) {
     return { thang: d.getMonth() + 1, nam: d.getFullYear() };
   }
 
-  const parts = str.split(/[\/-]/);
-  if (parts.length >= 3) {
-    const p0 = parts[0].length === 4 ? parts[0] : parts[2];
-    return { thang: parseInt(parts[1]), nam: parseInt(p0) };
-  } else if (parts.length === 2) {
+  // Fallback 2: Thử parse MM/YYYY
+  if (parts.length === 2 && !isNaN(parts[0]) && !isNaN(parts[1])) {
     return { thang: parseInt(parts[0]), nam: parseInt(parts[1]) };
   }
+
   return { thang: null, nam: null };
 }
 
@@ -398,17 +484,7 @@ function detectHeaderIndex(rows, markers) {
 }
 
 function normalizeDate(rawDate) {
-  if (!rawDate) return { thang: null, nam: null };
-  const dateStr = String(rawDate).trim();
-  const parts = dateStr.split(/[\/-]/);
-  if (parts.length >= 3) {
-    const isYearFirst = parts[0].length === 4;
-    return {
-      thang: parseInt(parts[1], 10),
-      nam: parseInt(isYearFirst ? parts[0] : parts[2], 10),
-    };
-  }
-  return { thang: null, nam: null };
+  return parseExcelDate(rawDate);
 }
 
 export async function processSalesExcel(buffer, filename) {
@@ -448,7 +524,6 @@ export async function processSalesExcel(buffer, filename) {
         .toLowerCase();
 
       if (ma) {
-        const sourceType = hthm ? "vbhxh" : s["MÃ HTHM"] ? "hddt" : "doanh_thu";
         allRecords.push({
           ma_hang: ma,
           mat_hang: mat,
@@ -456,7 +531,6 @@ export async function processSalesExcel(buffer, filename) {
           nam,
           nhan_vien:
             s["NHÂN VIÊN ĐẤU NỐI"] || s["Nhân viên đấu nối"] || "Không rõ",
-          source_type: sourceType,
         });
       }
     });
