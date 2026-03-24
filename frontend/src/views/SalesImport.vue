@@ -124,6 +124,12 @@ const rules = {
     { label: "Nhân viên", rule: "Cột Z" },
     { label: "Sản phẩm", rule: "Cột R (Mã) & S (Mặt hàng)" },
   ],
+  Tendoo: [
+    { label: "Kỳ hạn", rule: "Cột B (ngay_dang_ky_goi)" },
+    { label: "Nhân viên", rule: "Cột H (ma_nhan_vien_tu_van)" },
+    { label: "Sản phẩm", rule: "Cột J (goi_dang_ky)" },
+    { label: "Thành tiền", rule: "Cột L (tự động thêm vào giá của sản phẩm)" },
+  ],
 };
 const defaultRule = [
   { label: "Điều kiện", rule: "Cột AR phải chứa tên nhóm Sp" },

@@ -423,3 +423,17 @@ async function populateFilterMetadata(db, response, { type, source, year, month,
   months.forEach(m => quarters.add(String(Math.floor((parseInt(m) - 1) / 3) + 1)));
   response.availableQuarters = Array.from(quarters).sort();
 }
+/**
+ * Force refresh the summary_report table
+ * @route POST /api/dashboard/refresh
+ */
+export const refreshSummary = async (req, res) => {
+  try {
+    const { updateSummaryReport } = await import("../services/reportService.js");
+    await updateSummaryReport();
+    res.json({ message: "Dữ liệu đã được cập nhật thành công!" });
+  } catch (err) {
+    console.error("Refresh error:", err);
+    res.status(500).json({ error: "Không thể làm mới dữ liệu: " + err.message });
+  }
+};

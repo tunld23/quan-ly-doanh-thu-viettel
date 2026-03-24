@@ -5,7 +5,8 @@ import {
   getDashboardData,
   getStatus,
   getSalesData,
-  getStaffNames
+  getStaffNames,
+  refreshSummary
 } from "../controllers/dashboardController.js";
 import { 
   importProducts, 
@@ -29,6 +30,7 @@ const upload = multer({ storage: multer.memoryStorage() });
 
 router.post("/init", syncData);
 router.get("/dashboard", getDashboardData);
+router.post("/dashboard/refresh", refreshSummary);
 router.get("/sales", getSalesData);
 router.get("/status", getStatus);
 router.get("/product-groups", getProductGroups);

@@ -21,6 +21,7 @@
       :product-groups="visibleProductGroups"
       :is-comparison-mode="isComparisonMode"
       @toggle-compare="isComparisonMode = !isComparisonMode"
+      @refresh="handleRefresh"
     />
 
     <!-- Main Chart & Ranking Card -->
@@ -146,7 +147,7 @@
                         class="p-4 text-[10px] font-black text-gray-700 uppercase tracking-widest border-b border-gray-100 text-right min-w-[100px] truncate"
                         :title="cat"
                       >
-                        {{ cat }}
+                        {{ getShortName(cat) }}
                       </th>
                       <th
                         class="p-4 text-[11px] font-black text-blue-700 uppercase tracking-widest border-b border-gray-200 text-right bg-blue-100 sticky right-0 z-30 shadow-[-6px_0_12px_rgba(43,84,255,0.15)] min-w-[120px]"
@@ -246,7 +247,7 @@
                         v-for="catSeries in categoryData?.series || []"
                         :key="catSeries.name"
                         class="p-3 text-[12px] text-right font-mono font-black text-blue-300 max-w-[110px] truncate"
-                        :title="catSeries.name"
+                        :title="getShortName(catSeries.name)"
                       >
                         {{
                           formatValue(calculateCategoryTotal(catSeries.data))
@@ -402,6 +403,7 @@ import {
   getComparisonOption,
   getCategoryLineOption,
   getCategoryPieOption,
+  getShortName,
 } from "../../utils/chartConfig";
 
 // Components
@@ -499,40 +501,29 @@ const comparisonData = computed(() => {
   return dashboardData.value.comparisonData[activeMetric.value];
 });
 
-const lastVisibleGroups = ref(["all"]);
-
-// Filter product groups to hide those with 0 data (except 'all')
+// Filter product groups based on what's available from backend for the current source/time
 const visibleProductGroups = computed(() => {
-  if (!productGroups.value) return ["all"];
-
-  // If we are looking at "all", compute which ones have data and update the lastKnown list
-  if (
-    dataType.value === "all" &&
-    dashboardData.value &&
-    dashboardData.value.categoryData &&
-    dashboardData.value.categoryData[activeMetric.value]
-  ) {
-    const currentData = dashboardData.value.categoryData[activeMetric.value];
-    if (currentData.series) {
-      const activeNames = currentData.series
-        .filter((s) => s.data && s.data.some((val) => val > 0))
-        .map((s) => s.name);
-
-      // PURE DATA-DRIVEN: Only show categories that actually appear in the chart + "all"
-      const filtered = Array.from(new Set(["all", ...activeNames]));
-
-      // Sort to keep 'all' first, then others alphabetically
-      lastVisibleGroups.value = filtered.sort((a, b) => {
-        if (a === "all") return -1;
-        if (b === "all") return 1;
-        return a.localeCompare(b);
-      });
-    }
-  }
-
-  // Always return the last known good set of tabs to prevent them from disappearing
-  return lastVisibleGroups.value;
+  return productGroups.value || ["all"];
 });
+
+// --- WATCHES ---
+watch(
+  [
+    dataType,
+    sourceType,
+    selectedYear,
+    activeMetric,
+    viewMode,
+    filterMode,
+    selectedMonth,
+    selectedQuarter,
+  ],
+  () => {
+    if (!suppressFetch.value) {
+      processData();
+    }
+  },
+);
 
 // --- METHODS ---
 
@@ -598,6 +589,23 @@ const exitComparison = async () => {
   await processData();
 };
 
+const handleRefresh = async () => {
+  const { useToast } = await import("../../composables/useToast");
+  const toast = useToast();
+  globalLoading.value = true;
+  loadingStatusText.value = "Đang đồng bộ lại dữ liệu...";
+  try {
+    const { dashboardService } = await import("../../services/apiService");
+    await dashboardService.refreshDashboard();
+    toast.success("Dữ liệu đã được đồng bộ lại!");
+    await processData();
+  } catch (e) {
+    toast.error("Lỗi đồng bộ dữ liệu: " + (e.response?.data?.error || e.message));
+  } finally {
+    globalLoading.value = false;
+  }
+};
+
 const processData = async () => {
   try {
     const response = await loadData();
@@ -635,7 +643,8 @@ const updateUI = () => {
   // Handle special case: SINGLE point selected (1 Month, 1 Quarter, or 1 Year in Comparison)
   const isSinglePoint =
     isComparisonMode.value &&
-    (filterMode.value === "month" || filterMode.value === "quarter");
+    ((filterMode.value === "month" && selectedMonth.value !== "") ||
+      (filterMode.value === "quarter" && selectedQuarter.value !== ""));
 
   let timeLabel = "";
   if (filterMode.value === "month") timeLabel = `Tháng ${selectedMonth.value}`;

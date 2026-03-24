@@ -113,6 +113,17 @@ const EXCEL_CONFIGS = {
         rawMat: String(row[19] || "").trim().toLowerCase(), // Cột T
       }),
     },
+    Tendoo: {
+      headerRow: 0, // Dòng 1
+      requiredMarkers: ["ma_nhan_vien_tu_van", "goi_dang_ky", "ngay_dang_ky_goi", "thanh_tien"],
+      parse: (row) => ({
+        rawDate: row[1], // Cột B
+        rawUser: row[7], // Cột H
+        rawMa: String(row[9] || "").trim().toLowerCase(), // Cột J
+        rawMat: String(row[9] || "").trim().toLowerCase(), // Cột J
+        price: parseFloat(String(row[11] || 0).replace(/[^\d.-]/g, "")) || 0, // Cột L
+      }),
+    },
     EasyBooks: {
       headerRow: 5, // Dòng 6
       requiredMarkers: [
@@ -244,27 +255,8 @@ export async function processProductImportExcel(buffer, source = "dealer") {
 }
 
 export async function processSalesImportExcel(buffer, groupType, source = "dealer") {
-  const { rows } = readExcel(buffer);
+  const sheets = readExcelAllSheets(buffer);
   
-  // Xử lý các nhóm AM có thể dùng chung cấu hình hoặc cấu hình mặc định nếu chưa định nghĩa
-  let activeType = groupType === "E-Invoice" ? "HDDT" : groupType;
-  
-  // Nếu không tìm thấy nhóm cụ thể, dùng "CA" làm mẫu cho các file AM (hoặc chỉnh lại theo thực tế)
-  let config = EXCEL_CONFIGS.SALES_DETAIL[activeType];
-  if (!config) {
-     if (["Tendoo"].includes(groupType)) {
-        config = EXCEL_CONFIGS.SALES_DETAIL["AM_General"];
-     } else {
-        config = EXCEL_CONFIGS.SALES_DETAIL["CA"]; 
-     }
-  }
-
-  // Tự động tìm dòng tiêu đề nếu dòng tiêu đề mặc định không khớp
-  const detectedIdx = detectHeaderIndex(rows, config.requiredMarkers);
-  const actualHeaderRow = detectedIdx !== -1 ? detectedIdx : config.headerRow;
-
-  validateHeader(rows, actualHeaderRow, config.requiredMarkers, groupType);
-
   const results = [];
   const skipReasons = {
     wrongMarker: 0,
@@ -272,70 +264,65 @@ export async function processSalesImportExcel(buffer, groupType, source = "deale
     invalidTinh: 0,
     emptyRow: 0
   };
+  let totalRowsChecked = 0;
 
-  for (let i = actualHeaderRow + 1; i < rows.length; i++) {
-    const row = rows[i];
-    if (!row || row.length === 0) {
-      skipReasons.emptyRow++;
-      continue;
-    }
-    
-    // Bỏ qua dòng trắng (không có dữ liệu ở các cột chính)
-    const isRowEmpty = !row.some(cell => cell !== "" && cell !== null && cell !== undefined);
-    if (isRowEmpty) {
-      skipReasons.emptyRow++;
-      continue;
-    }
+  // Xử lý các nhóm AM có thể dùng chung cấu hình hoặc cấu hình mặc định nếu chưa định nghĩa
+  let activeType = groupType === "E-Invoice" ? "HDDT" : groupType;
+  let config = EXCEL_CONFIGS.SALES_DETAIL[activeType] || EXCEL_CONFIGS.SALES_DETAIL["CA"];
 
-    const parsed = config.parse(row, groupType);
-    if (parsed.rawUser === "skip") {
-      skipReasons.wrongMarker++;
-      continue;
-    }
-    
-    if (parsed.rawUser === "invalid_tinh") {
-      skipReasons.invalidTinh++;
-      continue;
+  for (const sheetData of sheets) {
+    const { rows } = sheetData;
+    const detectedIdx = detectHeaderIndex(rows, config.requiredMarkers);
+    if (detectedIdx === -1) {
+       // Bỏ qua sheet này nếu không tìm thấy header (mặc dù vẫn đếm số dòng tiềm năng)
+       continue; 
     }
 
-    const { rawDate, rawUser, rawMa, rawMat, amount } = parsed;
-    const { thang, nam } = parseExcelDate(rawDate);
-
-    // Nếu không có mã hàng thì mới tính là lỗi thiếu mã
-    if (!rawMa || rawMa === "") {
-      skipReasons.noMaHang++;
-      continue;
+    try {
+      validateHeader(rows, detectedIdx, config.requiredMarkers, groupType);
+    } catch (e) {
+      continue; // Skip silently if validation fails for this sheet
     }
 
-    results.push({
-      ma_hang: rawMa,
-      mat_hang: rawMat,
-      thang: thang ? String(thang).padStart(2, "0") : null,
-      nam: nam,
-      nhan_vien: String(rawUser || "Không rõ").trim(),
-      product_group: groupType,
-      amount: amount,
-    });
+    totalRowsChecked += (rows.length - (detectedIdx + 1));
+
+    for (let i = detectedIdx + 1; i < rows.length; i++) {
+       const row = rows[i];
+       if (!row || row.length === 0) { skipReasons.emptyRow++; continue; }
+       
+       const isRowEmpty = !row.some(cell => cell !== "" && cell !== null && cell !== undefined);
+       if (isRowEmpty) { skipReasons.emptyRow++; continue; }
+
+       const parsed = config.parse(row, groupType);
+       if (parsed.rawUser === "skip") { skipReasons.wrongMarker++; continue; }
+       if (parsed.rawUser === "invalid_tinh") { skipReasons.invalidTinh++; continue; }
+
+       const { rawDate, rawUser, rawMa, rawMat, amount, price } = parsed;
+       const { thang, nam } = parseExcelDate(rawDate);
+
+       if (!rawMa || rawMa === "") { skipReasons.noMaHang++; continue; }
+
+       results.push({
+         ma_hang: rawMa,
+         mat_hang: rawMat,
+         thang: thang ? String(thang).padStart(2, "0") : null,
+         nam: nam,
+         nhan_vien: String(rawUser || "Không rõ").trim(),
+         product_group: groupType,
+         amount: amount,
+         price: price, // New field for direct product insertion
+       });
+    }
   }
 
   if (results.length === 0) {
-    let message = `File không có dữ liệu ${groupType} hợp lệ.`;
-    
-    if (skipReasons.wrongMarker > 0 && skipReasons.invalidTinh === 0 && skipReasons.noMaHang === 0) {
-        message = `File không có dữ liệu cho nhóm ${groupType} (Cột AR không khớp).`;
-    } else if (skipReasons.invalidTinh > 0) {
-        message = `Dữ liệu trong file không thuộc mã tỉnh HNI (nhóm ${groupType}).`;
-    }
-    
-    const error = new Error(message);
-    error.isValidationError = true;
-    throw error;
+    throw new Error(`File không có dữ liệu ${groupType} hợp lệ trên bất kỳ sheet nào.`);
   }
 
   return {
     data: results,
     summary: {
-      totalRows: rows.length - (config.headerRow + 1),
+      totalRows: totalRowsChecked,
       imported: results.length,
       skipped: skipReasons.wrongMarker + skipReasons.invalidTinh + skipReasons.noMaHang + skipReasons.emptyRow,
       reasons: skipReasons
@@ -347,10 +334,21 @@ export async function processSalesImportExcel(buffer, groupType, source = "deale
  * UTILS & HELPERS
  */
 
-function readExcel(buffer) {
+function readExcelAllSheets(buffer) {
   const wb = xlsx.read(buffer, { type: "buffer" });
   if (!wb.SheetNames || wb.SheetNames.length === 0)
     throw new Error("File Excel không có sheet nào");
+
+  return wb.SheetNames
+    .filter(name => !name.toLowerCase().includes("tong hop") && !name.toLowerCase().includes("summary"))
+    .map(name => ({
+      name,
+      rows: xlsx.utils.sheet_to_json(wb.Sheets[name], { header: 1, defval: "" })
+    }));
+}
+
+function readExcel(buffer) {
+  const wb = xlsx.read(buffer, { type: "buffer" });
   const sheet = wb.Sheets[wb.SheetNames[0]];
   const rows = xlsx.utils.sheet_to_json(sheet, { header: 1, defval: "" });
   return { rows };

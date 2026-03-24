@@ -11,7 +11,8 @@ export const dashboardService = {
   getStatus: () => api.get('/status'),
   getStaffNames: (params) => api.get('/staff', { params }),
   getProductGroups: (source) => api.get('/product-groups', { params: { source } }),
-  getYears: () => api.get('/product/years')
+  getYears: () => api.get('/product/years'),
+  refreshDashboard: () => api.post('/dashboard/refresh')
 };
 
 export const adjustmentService = {

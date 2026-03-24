@@ -16,7 +16,8 @@ const formatMoney = (val, isCurrency = true) => {
 
 export const getShortName = (name) => {
   if (name === "all") return "Tất cả";
-  if (name === "Internet truyền hình" || name === "Internet Truyền hình") return "Internet";
+  if (name === "Internet truyền hình" || name === "Internet Truyền hình")
+    return "Internet";
   if (name === "Hóa đơn (HDDT)" || name === "Hóa đơn") return "HDDT";
   if (name === "HDDTV") return "HDDT";
   return name;
@@ -24,20 +25,25 @@ export const getShortName = (name) => {
 
 const CATEGORY_COLOR_MAP = {
   CA: "#6366f1", // Indigo
-  "Internet truyền hình": "#10b981", // Green
-  Internet: "#10b981", // Green
+  "Internet truyền hình": "#10b981", // Emerald
+  Internet: "#06b6d4", // Cyan
   HDDT: "#ec4899", // Pink
-  "Hóa đơn (HDDT)": "#ec4899",
-  "Hóa đơn": "#ec4899",
+  "Hóa đơn (HDDT)": "#f43f5e", // Rose
+  "Hóa đơn": "#d946ef", // Fuchsia
   vTracking: "#f59e0b", // Amber
   vBHXH: "#8b5cf6", // Violet
   vContract: "#3b82f6", // Blue
-  HDDTV: "#06b6d4", // Cyan
-  EasyBooks: "#f43f5e", // Rose
+  HDDTV: "#14b8a6", // Teal
+  EasyBooks: "#f97316", // Orange
   Tendoo: "#84cc16", // Lime
+  MySign: "#0ea5e9", // Sky
+  "Digital Signature": "#4338ca", // Dark Indigo
+  vBHXHV: "#7c3aed", // Dark Violet
+  SME: "#1e293b", // Slate
 };
 
 const DEFAULT_COLORS = [
+  // 1-10: Professional
   "#6366f1",
   "#10b981",
   "#ec4899",
@@ -47,11 +53,97 @@ const DEFAULT_COLORS = [
   "#06b6d4",
   "#f43f5e",
   "#84cc16",
+  "#0ea5e9",
+  // 11-20: Vibrant
   "#ef4444",
+  "#a855f7",
+  "#14b8a6",
+  "#f97316",
+  "#64748b",
+  "#d946ef",
+  "#22c55e",
+  "#eab308",
+  "#4f46e5",
+  "#059669",
+  // 21-30: Deep
+  "#db2777",
+  "#d97706",
+  "#7c3aed",
+  "#2563eb",
+  "#0891b2",
+  "#e11d48",
+  "#65a30d",
+  "#0284c7",
+  "#4338ca",
+  "#065f46",
+  // 31-40: Earth & Unique
+  "#9d174d",
+  "#b45309",
+  "#5b21b6",
+  "#1e40af",
+  "#155e75",
+  "#9f1239",
+  "#3f6212",
+  "#075985",
+  "#3730a3",
+  "#064e3b",
+  "#264653",
+  "#2a9d8f",
+  "#e9c46a",
+  "#f4a261",
+  "#e76f51",
+  "#003049",
+  "#d62828",
+  "#f77f00",
+  "#fcbf49",
+  "#eae2b7",
+  "#5f0f40",
+  "#9a031e",
+  "#fb8b24",
+  "#e36414",
+  "#0f4c5c",
+  "#606c38",
+  "#283618",
+  "#fefae0",
+  "#dda15e",
+  "#bc6c25",
+  "#c026d3",
+  "#ea580c",
+  "#ca8a04",
+  "#16a34a",
+  "#0d9488",
+  "#9333ea",
+  "#f11712",
+  "#662d91",
+  "#006837",
+  "#fbb03b",
+  "#29abe2",
+  "#00a99d",
+  "#d4145a",
+  "#f7931e",
+  "#8cc63f",
+  "#39b54a",
+  "#4b2113",
+  "#744b19",
+  "#322659",
+  "#1c4532",
 ];
 
+// Simple hash function to get consistent color from name
+const getStringHash = (str) => {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    hash = str.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  return Math.abs(hash);
+};
+
 const getCategoryColor = (name, index) => {
-  return CATEGORY_COLOR_MAP[name] || DEFAULT_COLORS[index % DEFAULT_COLORS.length];
+  if (CATEGORY_COLOR_MAP[name]) return CATEGORY_COLOR_MAP[name];
+
+  // Use hash of name if not in map, fallback to index if hash fails
+  const nameHash = name ? getStringHash(name) : index;
+  return DEFAULT_COLORS[nameHash % DEFAULT_COLORS.length];
 };
 
 export const getBaseChartOption = () => ({
@@ -249,10 +341,10 @@ export const getComparisonOption = (data, metricName, metricId = "") => {
   const series = [];
 
   // Professional Gradient Blue (Decreasing intensity from Newest to Oldest)
-  // Professional Colors for Year-over-year comparison
+  // Professional Colors for Year-over-year comparison (High contrast)
   const colors = [
-    "#1e293b", // Slate (Latest Year)
-    "#3b82f6", // Blue
+    "#2563eb", // Blue (Main/Oldest)
+    "#1e293b", // Slate
     "#10b981", // Emerald
     "#f59e0b", // Amber
     "#f43f5e", // Rose
@@ -419,20 +511,7 @@ export const getCategoryLineOption = (data, metricName, metricId = "") => {
   const { categories, months, series } = data;
   const isCurrency = metricId !== "serviceCount";
 
-  const colors = [
-    "#6366f1",
-    "#8b5cf6",
-    "#ec4899",
-    "#f43f5e",
-    "#f59e0b",
-    "#10b981",
-    "#06b6d4",
-    "#3b82f6",
-    "#64748b",
-    "#ef4444",
-    "#84cc16",
-    "#a855f7",
-  ];
+  const colors = DEFAULT_COLORS;
 
   return {
     color: colors,
@@ -554,45 +633,45 @@ export const getCategoryLineOption = (data, metricName, metricId = "") => {
             },
           ]
         : series.map((s, idx) => {
-      const isSinglePoint = months.length === 1;
-      const seriesColor = getCategoryColor(s.name, idx);
-      return {
-        name: getShortName(s.name),
-        type: isSinglePoint ? "bar" : "line",
-        smooth: 0.4,
-        barMaxWidth: 30,
-        barMinHeight: 5, // Improved balance for small data
-        showSymbol: true,
-        symbol: "circle",
-        symbolSize: 10,
-        itemStyle: {
-          color: seriesColor,
-          borderWidth: 2,
-          borderColor: "#fff",
-          borderRadius: [4, 4, 0, 0],
-        },
-        data: s.data,
-        lineStyle: {
-          width: 4,
-          cap: "round",
-          shadowBlur: 10,
-          shadowColor: "rgba(0,0,0,0.1)",
-          shadowOffsetY: 5,
-        },
-        areaStyle: {
-          opacity: 0.1,
-          color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-            { offset: 0, color: seriesColor },
-            { offset: 1, color: "rgba(255, 255, 255, 0)" },
-          ]),
-        },
-        emphasis: {
-          focus: "series",
-          lineStyle: { width: 5 },
-          itemStyle: { scale: 1.5 },
-        },
-      };
-    }),
+            const isSinglePoint = months.length === 1;
+            const seriesColor = getCategoryColor(s.name, idx);
+            return {
+              name: getShortName(s.name),
+              type: isSinglePoint ? "bar" : "line",
+              smooth: 0.4,
+              barMaxWidth: 30,
+              barMinHeight: 5, // Improved balance for small data
+              showSymbol: true,
+              symbol: "circle",
+              symbolSize: 10,
+              itemStyle: {
+                color: seriesColor,
+                borderWidth: 2,
+                borderColor: "#fff",
+                borderRadius: [4, 4, 0, 0],
+              },
+              data: s.data,
+              lineStyle: {
+                width: 4,
+                cap: "round",
+                shadowBlur: 10,
+                shadowColor: "rgba(0,0,0,0.1)",
+                shadowOffsetY: 5,
+              },
+              areaStyle: {
+                opacity: 0.1,
+                color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+                  { offset: 0, color: seriesColor },
+                  { offset: 1, color: "rgba(255, 255, 255, 0)" },
+                ]),
+              },
+              emphasis: {
+                focus: "series",
+                lineStyle: { width: 5 },
+                itemStyle: { scale: 1.5 },
+              },
+            };
+          }),
   };
 };
 
@@ -629,10 +708,8 @@ export const getCategoryPieOption = (pieData, metricName, metricId = "") => {
     // Requirement 2: Legend below, vertical stack, show ALL items
     legend: {
       show: true,
-      type: "scroll",
       orient: "vertical",
-      top: "65%", // Vertically centered-ish in the bottom area
-      bottom: "5%", // Padding from bottom
+      top: "62%", // Adjusted for more space
       left: "center",
       icon: "circle",
       padding: [0, 0, 5, 0],
@@ -648,7 +725,7 @@ export const getCategoryPieOption = (pieData, metricName, metricId = "") => {
         return `${displayName.padEnd(12, " ")} : ${value} ( ${percent}% )`;
       },
       textStyle: {
-        fontSize: 11,
+        fontSize: 10, // Slightly smaller to fit more items
         fontWeight: "700",
         color: "#64748b",
         fontFamily: "monospace",
@@ -660,8 +737,8 @@ export const getCategoryPieOption = (pieData, metricName, metricId = "") => {
         name: metricName,
         type: "pie",
         // Requirement 3: Traditional solid pie
-        radius: "60%",
-        center: ["50%", "32%"],
+        radius: "55%", // Slightly smaller to ensure space for legend
+        center: ["50%", "30%"],
         avoidLabelOverlap: true,
         itemStyle: {
           borderRadius: 0,

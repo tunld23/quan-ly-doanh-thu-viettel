@@ -3,7 +3,7 @@ import { ref } from "vue";
 
 const props = defineProps({
   modelValue: File,
-  accept: { type: String, default: ".xlsx, .xls" },
+  accept: { type: String, default: ".xlsx, .xls, .csv, .xlsb, .ods" },
   label: { type: String, default: "Tải lên file dữ liệu" },
 });
 
@@ -20,8 +20,12 @@ const handleFileSelect = (event) => {
 
 const handleDrop = (event) => {
   const droppedFile = event.dataTransfer.files[0];
-  if (droppedFile && (droppedFile.name.endsWith(".xlsx") || droppedFile.name.endsWith(".xls"))) {
-    emit("update:modelValue", droppedFile);
+  if (droppedFile) {
+    const ext = droppedFile.name.split('.').pop().toLowerCase();
+    const supported = ["xlsx", "xls", "csv", "xlsb", "ods"];
+    if (supported.includes(ext)) {
+      emit("update:modelValue", droppedFile);
+    }
   }
 };
 
@@ -56,7 +60,7 @@ const removeFile = () => {
         </div>
         <div>
           <p class="text-lg font-medium text-gray-700">Kéo thả file hoặc click để chọn</p>
-          <p class="text-sm text-gray-500">Hỗ trợ định dạng Excel (.xlsx, .xls)</p>
+          <p class="text-sm text-gray-500">Hỗ trợ định dạng Excel (.xlsx, .xls, .csv, .xlsb, .ods)</p>
         </div>
       </div>
       

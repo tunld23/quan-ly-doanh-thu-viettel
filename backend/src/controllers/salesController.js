@@ -134,6 +134,60 @@ export const importSales = async (req, res) => {
       if (table.rows.length > 0) {
         const bulkRequest = new sql.Request(transaction);
         await bulkRequest.bulk(table);
+        
+        // Special logic for Tendoo: Add products to product table automatically
+        if (type === "Tendoo") {
+           // Use a temporary table or MERGE to insert products without duplicates
+           // For simplicity and performance, we'll collect unique products first
+           const uniqueProducts = [];
+           const seenProducts = new Set();
+           
+           for (const s of sData) {
+              const y = parseInt(s.nam || fallbackYear);
+              const m = s.thang || fallbackMonth;
+              const key = `${y}|${m}|${s.ma_hang}|${s.mat_hang}|${source}`;
+              if (!seenProducts.has(key) && s.price !== undefined) {
+                 seenProducts.add(key);
+                 uniqueProducts.push({
+                    tr_year: y,
+                    tr_month: m,
+                    ma_hang: s.ma_hang,
+                    mat_hang: s.mat_hang,
+                    without_vat: s.price,
+                    source_type: source
+                 });
+              }
+           }
+           
+           if (uniqueProducts.length > 0) {
+              // We'll use a MERGE statement to avoid PK issues
+              // To do this via bulk, we'd need a temp table. 
+              // For small amounts, we can generate a query or use multiple requests.
+              // Given the potential size, let's use a simple per-item insert (or a batch)
+              for (const p of uniqueProducts) {
+                const pReq = new sql.Request(transaction);
+                pReq.input("y", sql.Int, p.tr_year);
+                pReq.input("m", sql.NVarChar, p.tr_month);
+                pReq.input("ma", sql.NVarChar, p.ma_hang);
+                pReq.input("mat", sql.NVarChar, p.mat_hang);
+                pReq.input("price", sql.Float, p.without_vat);
+                pReq.input("src", sql.NVarChar, p.source_type);
+                
+                await pReq.query(`
+                  IF NOT EXISTS (SELECT 1 FROM product WHERE tr_year = @y AND tr_month = @m AND ma_hang = @ma AND mat_hang = @mat AND source_type = @src)
+                  BEGIN
+                    INSERT INTO product (tr_year, tr_month, ma_hang, mat_hang, without_vat, with_vat, vat, source_type)
+                    VALUES (@y, @m, @ma, @mat, @price, @price, 0, @src)
+                  END
+                  ELSE
+                  BEGIN
+                    UPDATE product SET without_vat = @price, with_vat = @price, vat = 0
+                    WHERE tr_year = @y AND tr_month = @m AND ma_hang = @ma AND mat_hang = @mat AND source_type = @src
+                  END
+                `);
+              }
+           }
+        }
       }
 
       await transaction.commit();
