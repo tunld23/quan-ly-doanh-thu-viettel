@@ -89,8 +89,9 @@ export const getDashboardData = async (req, res) => {
     // 3. Category Breakdown Data (Line, Pie, Table)
     // Use the actual 'type' filter provided in the request
     const categoryRecordset = await fetchRawDashboardData(db, { type, year, source });
+
     metrics.forEach(metric => {
-      response.categoryData[metric] = analytics.aggregateCategoryData(categoryRecordset, analyticsFilters, metric);
+      response.categoryData[metric] = analytics.aggregateCategoryData(categoryRecordset, analyticsFilters, metric, "product_group");
     });
 
     // Populate dynamic filter lists (Groups, Years, Months, Quarters)
@@ -114,31 +115,41 @@ export const getDashboardData = async (req, res) => {
         }
 
         const result = { labels: [], years: years, yearsData: {} };
-        
-        // 1. Get ALL unique product groups for these years from BOTH targets and actuals
-        const groupReq = db.request();
         const yearsStr = years.join(",");
-        
-        let actualWhere = `tr_year IN (${yearsStr}) AND (total_amount > 0 OR service_count > 0)`;
-        let targetWhere = `tr_year IN (${yearsStr})`;
+        const groupReq = db.request();
 
+        let sourceFilter = "";
+        let targetSourceFilter = "";
         if (source && source !== "all") {
-            actualWhere += " AND LOWER(TRIM(source_type)) = LOWER(TRIM(@source))";
-            targetWhere += " AND LOWER(TRIM(source_type)) = LOWER(TRIM(@source))";
+            sourceFilter = " AND LOWER(TRIM(source_type)) = LOWER(TRIM(@source))";
+            targetSourceFilter = " AND LOWER(TRIM(source_type)) = LOWER(TRIM(@source))";
             groupReq.input("source", source);
         }
-        
+
+        let typeFilter = "";
+        let targetTypeFilter = "";
         if (type && type !== "all") {
-            actualWhere += " AND product_group = @type";
-            targetWhere += " AND product_group = @type";
+            typeFilter = " AND product_group = @type";
+            targetTypeFilter = " AND product_group = @type";
             groupReq.input("type", type);
         }
 
+        const actualUnion = `
+            SELECT product_group, tr_year, source_type, total_amount as revenue, 0 as quantity FROM summary_report
+            UNION ALL
+            SELECT product_group, tr_year, source_type, 0 as revenue, service_count as quantity FROM staff_service_count
+            UNION ALL
+            SELECT product_group, tr_year, source_type, 0 as revenue, adj_quantity as quantity FROM adjustments
+        `;
+
         let groupQuery = `
-            SELECT DISTINCT TRIM(product_group) as pg FROM summary_report WHERE ${actualWhere}
-                AND TRIM(product_group) IN (
-                    SELECT DISTINCT TRIM(product_group) FROM targets WHERE ${targetWhere} AND amount > 0
-                )
+            SELECT DISTINCT TRIM(product_group) as pg FROM (${actualUnion}) t 
+            WHERE tr_year IN (${yearsStr}) ${sourceFilter} ${typeFilter}
+            AND (revenue > 0 OR quantity > 0)
+            AND TRIM(product_group) IN (
+                SELECT DISTINCT TRIM(product_group) FROM targets 
+                WHERE tr_year IN (${yearsStr}) ${targetSourceFilter} ${targetTypeFilter} AND amount > 0
+            )
         `;
 
         if (type && type !== "all") {
@@ -156,7 +167,19 @@ export const getDashboardData = async (req, res) => {
             actualReq.input("year", targetYear);
             
             let targetQuery = `SELECT TRIM(product_group) as product_group, TRIM(type) as type, SUM(CAST(amount AS FLOAT)) as target_amount FROM targets WHERE tr_year = @year`;
-            let actualQuery = `SELECT TRIM(product_group) as product_group, SUM(CAST(total_amount AS FLOAT)) as actual_revenue, SUM(CAST(service_count AS FLOAT)) as actual_subs FROM summary_report WHERE tr_year = @year`;
+            let actualQuery = `
+              SELECT 
+                TRIM(product_group) as product_group, 
+                SUM(revenue) as actual_revenue, 
+                SUM(quantity) as actual_subs 
+              FROM (
+                SELECT product_group, tr_year, tr_month, source_type, total_amount as revenue, 0 as quantity FROM summary_report
+                UNION ALL
+                SELECT product_group, tr_year, tr_month, source_type, 0 as revenue, service_count as quantity FROM staff_service_count
+                UNION ALL
+                SELECT product_group, tr_year, tr_month, source_type, 0 as revenue, adj_quantity as quantity FROM adjustments
+              ) t
+              WHERE tr_year = @year`;
 
             if (source && source !== "all") {
                 targetQuery += " AND LOWER(TRIM(source_type)) = LOWER(TRIM(@source))";
@@ -303,31 +326,92 @@ export const getStaffNames = async (req, res) => {
 
 async function fetchRawDashboardData(db, { type, year, source }) {
   const request = db.request();
-  let query = `
-    SELECT 
-      tr_month AS thang, tr_year AS nam, nhan_vien AS nhanVien, 
-      product_group, source_type, service_count AS serviceCount, 
-      total_amount AS withoutVat, total_amount AS withVat, 0 AS vat 
-    FROM summary_report WHERE 1=1`;
+  let where = "WHERE 1=1";
 
   if (type !== "all") {
-    query += " AND LOWER(TRIM(product_group)) = LOWER(TRIM(@type))";
+    where += " AND LOWER(TRIM(product_group)) = LOWER(TRIM(@type))";
     request.input("type", type);
   }
   if (source !== "all") {
-    query += " AND LOWER(TRIM(source_type)) = LOWER(TRIM(@source))";
+    where += " AND LOWER(TRIM(source_type)) = LOWER(TRIM(@source))";
     request.input("source", source);
   }
   if (year) {
     const years = year.split(",").map(y => parseInt(y.trim()));
     if (years.length > 1) {
-      query += ` AND tr_year IN (${years.map((_, i) => `@y${i}`).join(",")})`;
+      where += ` AND tr_year IN (${years.map((_, i) => `@y${i}`).join(",")})`;
       years.forEach((y, i) => request.input(`y${i}`, y));
     } else {
-      query += " AND tr_year = @year";
+      where += " AND tr_year = @year";
       request.input("year", years[0]);
     }
   }
+
+  const query = `
+    SELECT 
+      tr_year AS nam, tr_month AS thang, nhan_vien AS nhanVien, 
+      product_group, source_type,
+      SUM(revenue) AS withoutVat, 
+      SUM(revenue) AS withVat, 
+      0 AS vat,
+      SUM(quantity) AS serviceCount
+    FROM (
+      -- Revenue Source
+      SELECT tr_year, tr_month, nhan_vien, product_group, source_type, total_amount AS revenue, 0 AS quantity
+      FROM summary_report
+      
+      UNION ALL
+      
+      -- Quantity Source (Base)
+      SELECT tr_year, tr_month, nhan_vien, product_group, source_type, 0 AS revenue, service_count AS quantity
+      FROM staff_service_count
+      
+      UNION ALL
+      
+      -- Quantity Source (Adjustments)
+      SELECT tr_year, tr_month, nhan_vien, product_group, source_type, 0 AS revenue, adj_quantity AS quantity
+      FROM adjustments
+    ) t
+    ${where}
+    GROUP BY tr_year, tr_month, nhan_vien, product_group, source_type`;
+
+  const { recordset } = await request.query(query);
+  return recordset;
+}
+
+async function fetchSubscriberRawData(db, { type, year, source }) {
+  const request = db.request();
+  let where = "WHERE 1=1";
+
+  if (type !== "all") {
+    where += " AND LOWER(TRIM(product_group)) = LOWER(TRIM(@type))";
+    request.input("type", type);
+  }
+  if (source !== "all") {
+    where += " AND LOWER(TRIM(source_type)) = LOWER(TRIM(@source))";
+    request.input("source", source);
+  }
+  if (year) {
+    const years = year.split(",").map(y => parseInt(y.trim()));
+    if (years.length > 1) {
+      where += ` AND tr_year IN (${years.map((_, i) => `@y${i}`).join(",")})`;
+      years.forEach((y, i) => request.input(`y${i}`, y));
+    } else {
+      where += " AND tr_year = @year";
+      request.input("year", years[0]);
+    }
+  }
+
+  const query = `
+    SELECT 
+      tr_year AS nam, tr_month AS thang, nhan_vien AS nhanVien, 
+      ma_hang, product_group, source_type,
+      0 AS withoutVat, 
+      0 AS withVat, 
+      0 AS vat,
+      1 AS serviceCount
+    FROM detail
+    ${where}`;
 
   const { recordset } = await request.query(query);
   return recordset;
@@ -375,23 +459,41 @@ async function populateFilterMetadata(db, response, { type, source, year, month,
   const actualWhereStr = whereActual.join(" AND ");
   const targetWhereStr = whereTarget.join(" AND ");
 
+  const actualUnion = `
+    SELECT nhan_vien, tr_year, tr_month, product_group, source_type, total_amount as revenue, 0 as quantity FROM summary_report
+    UNION ALL
+    SELECT nhan_vien, tr_year, tr_month, product_group, source_type, 0 as revenue, service_count as quantity FROM staff_service_count
+    UNION ALL
+    SELECT nhan_vien, tr_year, tr_month, product_group, source_type, 0 as revenue, adj_quantity as quantity FROM adjustments
+  `;
+
   let groupQuery = "";
   if (viewMode === 'target') {
-    // ONLY show groups that have BOTH a target AND an actual recorded (since rate 0 shows "No Data")
+    // ONLY show groups that have BOTH a target AND an actual recorded
     groupQuery = `
       SELECT DISTINCT TRIM(product_group) as product_group 
-      FROM summary_report 
-      WHERE ${actualWhereStr} AND (total_amount > 0 OR service_count > 0)
+      FROM (${actualUnion}) t 
+      WHERE ${actualWhereStr} AND (revenue > 0 OR quantity > 0)
         AND TRIM(product_group) IN (
             SELECT DISTINCT TRIM(product_group) FROM targets WHERE ${targetWhereStr} AND amount > 0
         )
     `;
-  } else {
+  } else if (viewMode === 'subscriber') {
+    // Subscriber Mode: ONLY show groups that have at least one subscriber (quantity > 0)
     groupQuery = `
       SELECT DISTINCT TRIM(product_group) as product_group 
-      FROM summary_report 
+      FROM (${actualUnion}) t 
       WHERE ${actualWhereStr} 
-        AND (total_amount > 0 OR service_count > 0)
+        AND quantity > 0
+        AND product_group IS NOT NULL AND product_group <> ''
+    `;
+  } else {
+    // Revenue Mode: ONLY show groups that have revenue recorded
+    groupQuery = `
+      SELECT DISTINCT TRIM(product_group) as product_group 
+      FROM (${actualUnion}) t 
+      WHERE ${actualWhereStr} 
+        AND (revenue > 0.01 OR revenue < -0.01)
         AND product_group IS NOT NULL AND product_group <> ''
     `;
   }

@@ -18,6 +18,15 @@ export const createAdjustment = async (req, res) => {
   }
 };
 
+export const getAvailableStaff = async (req, res) => {
+  try {
+    const data = await adjustmentService.getAvailableStaff(req.query);
+    res.json(data);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
 export const deleteAdjustment = async (req, res) => {
   try {
     const result = await adjustmentService.delete(req.params.id);

@@ -97,8 +97,8 @@ export const importSales = async (req, res) => {
         DELETE FROM detail 
         WHERE tr_year IN (${yearParams.join(",")})
         AND tr_month IN (${monthParams.join(",")})
-        AND (source_type = @source OR source_type IS NULL)
-        AND product_group = @group
+        AND (LOWER(TRIM(source_type)) = LOWER(TRIM(@source)) OR source_type IS NULL)
+        AND LOWER(TRIM(product_group)) = LOWER(TRIM(@group))
       `;
 
       await deleteRequest.query(deleteQuery);

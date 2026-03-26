@@ -18,6 +18,7 @@ export const dashboardService = {
 export const adjustmentService = {
   getAdjustments: () => api.get('/adjustments'),
   createAdjustment: (data) => api.post('/adjustments', data),
+  getAvailableStaff: (params) => api.get('/adjustments/available-staff', { params }),
   deleteAdjustment: (id) => api.delete(`/adjustments/${id}`)
 };
 

@@ -39,7 +39,9 @@ async function initDb(db) {
         source_type NVARCHAR(50) NOT NULL DEFAULT 'dealer',
         with_vat FLOAT,
         without_vat FLOAT,
-        vat FLOAT
+        vat FLOAT,
+        nhan_vien NVARCHAR(255),
+        product_group NVARCHAR(255)
       );
     END
     ELSE
@@ -57,6 +59,18 @@ async function initDb(db) {
        IF EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('product') AND name = 'product_line')
        BEGIN
           ALTER TABLE product DROP COLUMN product_line;
+       END
+
+       -- Add nhan_vien to product
+       IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('product') AND name = 'nhan_vien')
+       BEGIN
+          ALTER TABLE product ADD nhan_vien NVARCHAR(255) NULL;
+       END
+
+       -- Add product_group to product
+       IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('product') AND name = 'product_group')
+       BEGIN
+          ALTER TABLE product ADD product_group NVARCHAR(255) NULL;
        END
     END
 
@@ -89,6 +103,53 @@ async function initDb(db) {
       END
     END
 
+    -- New table for staff service counts
+    IF OBJECT_ID('staff_service_count', 'U') IS NULL
+    BEGIN
+      CREATE TABLE staff_service_count (
+        tr_year INT,
+        tr_month NVARCHAR(2),
+        nhan_vien NVARCHAR(255),
+        product_group NVARCHAR(255),
+        source_type NVARCHAR(50),
+        service_count INT
+      );
+    END
+
+    -- Product Type table with Hierarchy
+    IF OBJECT_ID('product_type', 'U') IS NOT NULL AND NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('product_type') AND name = 'product_hierarchy')
+    BEGIN
+       DROP TABLE product_type;
+    END
+
+    IF OBJECT_ID('product_type', 'U') IS NULL
+    BEGIN
+      CREATE TABLE product_type (
+        product_group NVARCHAR(255) NOT NULL,
+        product_hierarchy NVARCHAR(255) NOT NULL
+      );
+    END
+
+    -- Seed product_type data (wrapped in EXEC to avoid compilation error for new columns)
+    IF OBJECT_ID('product_type', 'U') IS NOT NULL
+    BEGIN
+      DECLARE @count INT;
+      DECLARE @sql NVARCHAR(MAX) = 'IF (SELECT COUNT(*) FROM product_type) = 0
+      BEGIN
+        INSERT INTO product_type (product_group, product_hierarchy) VALUES 
+        (''CA'', ''118111710121''), (''CA'', ''118111810121''), (''CA'', ''118111710124''),
+        (''BHXH'', ''118113310121''),
+        (''HĐĐT'', ''118112210124''), (''HĐĐT'', ''118112210729''), (''HĐĐT'', ''118112410729''),
+        (''VTRACKING'', ''118114310121''),
+        (''CAM10(DTDV)'', ''118111910121''),
+        (''Easybook'', ''118124010121''),
+        (''Tendoo'', ''118125910121''),
+        (''vContract'', ''118112510121''), (''vContract'', ''129120110806''),
+        (''Mysign'', ''118112010121'');
+      END';
+      EXEC sp_executesql @sql;
+    END
+
     IF OBJECT_ID('adjustments', 'U') IS NULL
     BEGIN
       CREATE TABLE adjustments (
@@ -105,7 +166,6 @@ async function initDb(db) {
     END
     ELSE
     BEGIN
-       -- Check if id column exists and drop it if we want to remove it
        IF EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('adjustments') AND name = 'id')
        BEGIN
          DECLARE @pk_name_adj NVARCHAR(255);
@@ -130,7 +190,6 @@ async function initDb(db) {
         nhan_vien NVARCHAR(255),
         product_group NVARCHAR(255),
         source_type NVARCHAR(50),
-        service_count FLOAT,
         total_amount FLOAT
       );
     END
@@ -139,6 +198,11 @@ async function initDb(db) {
       IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('summary_report') AND name = 'source_type')
       BEGIN
         ALTER TABLE summary_report ADD source_type NVARCHAR(50) NULL;
+      END
+      -- Remove redundant service_count column as requested
+      IF EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('summary_report') AND name = 'service_count')
+      BEGIN
+        ALTER TABLE summary_report DROP COLUMN service_count;
       END
     END
 
@@ -157,21 +221,18 @@ async function initDb(db) {
     END
     ELSE
     BEGIN
-      -- 1. Standardize column names if any leftovers (optional now but good for safety)
       IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('targets') AND name = 'type')
         AND EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('targets') AND name = 'target_type')
       BEGIN
         EXEC sp_rename 'targets.target_type', 'type', 'COLUMN';
       END
       
-      -- 2. Ensure all required columns exist
       IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('targets') AND name = 'source_type')
         ALTER TABLE targets ADD source_type NVARCHAR(50) NOT NULL DEFAULT 'dealer';
         
       IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('targets') AND name = 'created_at')
         ALTER TABLE targets ADD created_at DATETIME DEFAULT GETDATE();
 
-      -- 3. Final cleanup of any redundant columns
       IF EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('targets') AND name = 'target_type')
         ALTER TABLE targets DROP COLUMN target_type;
         

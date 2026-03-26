@@ -68,13 +68,10 @@ export const syncData = async (req, res) => {
         productTable.columns.add("with_vat", sql.Float, { nullable: true });
         productTable.columns.add("without_vat", sql.Float, { nullable: true });
         productTable.columns.add("vat", sql.Float, { nullable: true });
+        productTable.columns.add("nhan_vien", sql.NVarChar(255), { nullable: true });
+        productTable.columns.add("product_group", sql.NVarChar(255), { nullable: true });
 
-        const seenProducts = new Set();
         for (const p of pData) {
-          const pk = `${p.tr_year}-${p.tr_month}-${p.ma_hang.toLowerCase()}-${p.mat_hang.toLowerCase()}`;
-          if (seenProducts.has(pk)) continue;
-          seenProducts.add(pk);
-
           productTable.rows.add(
             p.nam || p.tr_year || 0,
             String(p.thang || p.tr_month || '0').padStart(2, '0'),
@@ -82,11 +79,12 @@ export const syncData = async (req, res) => {
             p.mat_hang || "Unknown",
             p.with_vat || 0,
             p.without_vat || 0,
-            p.vat || 0
+            p.vat || 0,
+            p.nhan_vien || "Không rõ",
+            p.product_group || "Khác"
           );
         }
         console.log("Ready to bulk insert products", productTable.rows.length);
-        if (productTable.rows.length > 0) console.log("First row:", productTable.rows[0]);
         if (productTable.rows.length > 0) {
           await new sql.Request(pTx).bulk(productTable);
         }

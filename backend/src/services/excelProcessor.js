@@ -10,18 +10,80 @@ const EXCEL_CONFIGS = {
     dataMapping: (row, source) => {
       const ma_hang = String(row[1] || "").trim().toLowerCase();
       const mat_hang = String(row[2] || "").trim().toLowerCase();
-      const qty = parseFloat(String(row[4] || 0).replace(/[^\d.-]/g, "")) || 1; // Cột E
 
-      if (!ma_hang || qty === 0) return null;
+      if (!ma_hang) return null;
+
+      // Filter: AD (index 29) is "hủy"
+      const status = String(row[29] || "").trim().toLowerCase();
+      if (status === "hủy" || status === "huy") return null;
+
+      // Filter: N (index 13) contains "Thiết bị"
+      const noteN = String(row[13] || "").trim().toLowerCase();
+      if (noteN.includes("thiết bị") || noteN.includes("thiet bi")) return null;
 
       const cleanNum = (val) => {
-        if (!val) return 0;
+        if (val === null || val === undefined || val === "") return 0;
+        if (typeof val === "number") return val;
+        
         let str = String(val).trim();
-        const isNegative = str.includes('-') || (str.startsWith('(') && str.endsWith(')'));
-        const digits = str.replace(/\D/g, ''); 
+        // Check for minus signs (hyphen, en-dash, em-dash) and accounting format (parentheses)
+        const isNegative = str.includes('-') || 
+                          str.includes('–') || 
+                          str.includes('—') || 
+                          (str.startsWith('(') && str.endsWith(')'));
+                          
+        // Process VN format: dot for thousands, comma for decimals
+        // Example: 1.234.567,89 -> 1234567.89
+        if (str.includes('.') && str.includes(',')) {
+          str = str.replace(/\./g, '').replace(/,/g, '.');
+        } else if (str.includes(',')) {
+          // If only comma, it could be thousands (US) or decimal (VN).
+          // Heuristic: if exactly 3 digits after comma, it's thousands.
+          const parts = str.split(',');
+          if (parts.length === 2 && parts[1].length === 3) {
+            str = str.replace(/,/g, '');
+          } else {
+            str = str.replace(/,/g, '.');
+          }
+        } else if (str.includes('.') && str.split('.').length > 2) {
+            // "1.234.567" -> thousands
+            str = str.replace(/\./g, '');
+        }
+
+        // Keep only digits and the first decimal dot
+        const digits = str.replace(/[^\d.]/g, ''); 
         const num = parseFloat(digits) || 0;
-        return (isNegative ? -num : num) / qty; // Chia cho số lượng
+        return (isNegative ? -num : num); 
       };
+
+      // Map Hierarchy Code in AQ (index 42) to Group Name
+      const hCode = String(row[42] || "").trim();
+      const hierarchyMap = {
+        "118111710121": "CA", "118111810121": "CA", "118111710124": "CA",
+        "118113310121": "BHXH",
+        "118112210124": "HDDT", "118112210729": "HDDT", "118112410729": "HDDT",
+        "118114310121": "vTracking",
+        "118111910121": "CAM10(DTDV)",
+        "118124010121": "Easybooks",
+        "118125910121": "Tendoo",
+        "118112510121": "vContract", "129120110806": "vContract",
+        "118112010121": "Mysign"
+      };
+
+      const rawUser = String(row[27] || "Không rõ").trim();
+      // Nhánh nv chỉ lấy trước dấu -
+      const cleanUser = rawUser.includes('-') ? rawUser.split('-')[0].trim() : rawUser;
+
+      const groupName = hierarchyMap[hCode];
+      
+      // Filter by source: Dealer only HAS 3 groups
+      if (source === "dealer") {
+        const allowed = ["CA", "BHXH", "HDDT"];
+        if (!groupName || !allowed.includes(groupName)) return null;
+      }
+      
+      // Nếu không có trong map thì bỏ luôn không nhập
+      if (!groupName) return null;
 
       return {
         ma_hang,
@@ -30,6 +92,8 @@ const EXCEL_CONFIGS = {
         without_vat: cleanNum(row[11]), // Cột L
         vat: cleanNum(row[12]), // Cột M
         source_type: source,
+        nhan_vien: cleanUser, // Cột AB (đã xử lý cắt dấu -)
+        product_group: groupName, // Cột AQ (đã map sang tên dịch vụ)
       };
     },
   },
@@ -121,10 +185,10 @@ const EXCEL_CONFIGS = {
         rawUser: row[7], // Cột H
         rawMa: String(row[9] || "").trim().toLowerCase(), // Cột J
         rawMat: String(row[9] || "").trim().toLowerCase(), // Cột J
-        price: parseFloat(String(row[11] || 0).replace(/[^\d.-]/g, "")) || 0, // Cột L
+        price: parseFloat(String(row[11] || 0).replace(/[^\d.–—.-]/g, "")) || 0, // Cột L (Including various dashes)
       }),
     },
-    EasyBooks: {
+    Easybooks: {
       headerRow: 5, // Dòng 6
       requiredMarkers: [
         "mã tỉnh",
@@ -218,7 +282,7 @@ const EXCEL_CONFIGS = {
           rawUser: "AM", // Default for these types if no specific column
           rawMa: String(row[1] || "").trim().toLowerCase(), // Cột B
           rawMat: String(row[2] || "").trim().toLowerCase(), // Cột C
-          amount: parseFloat(String(row[4] || 0).replace(/[^\d.-]/g, "")) || 0, // Cột E
+          amount: parseFloat(String(row[4] || 0).replace(/[^\d.–—.-]/g, "")) || 0, // Cột E (Including various dashes)
         };
       },
     },

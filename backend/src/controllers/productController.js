@@ -1,5 +1,6 @@
 import { getDb } from "../config/db.js";
 import { processProductImportExcel } from "../services/excelProcessor.js";
+import { updateSummaryReport } from "../services/reportService.js";
 import sql from "mssql/msnodesqlv8.js";
 
 export const importProducts = async (req, res) => {
@@ -28,12 +29,13 @@ export const importProducts = async (req, res) => {
     await transaction.begin();
 
     try {
-      // 1. Delete old products for the month/year
+      // 1. Delete old products for the month/year AND current source
       const deleteRequest = new sql.Request(transaction);
       deleteRequest.input("m", sql.NVarChar, paddedMonth);
       deleteRequest.input("y", sql.Int, parseInt(year));
+      deleteRequest.input("src", sql.NVarChar, source);
       await deleteRequest.query(
-        "DELETE FROM product WHERE tr_month = @m AND tr_year = @y",
+        "DELETE FROM product WHERE tr_month = @m AND tr_year = @y AND (source_type = @src OR source_type IS NULL)",
       );
 
       // 2. Bulk Insert into product table
@@ -46,18 +48,12 @@ export const importProducts = async (req, res) => {
       table.columns.add("with_vat", sql.Float, { nullable: true });
       table.columns.add("without_vat", sql.Float, { nullable: true });
       table.columns.add("vat", sql.Float, { nullable: true });
+      table.columns.add("nhan_vien", sql.NVarChar(255), { nullable: true });
+      table.columns.add("product_group", sql.NVarChar(255), { nullable: true });
 
-      const seen = new Set();
       let importedCount = 0;
-      let duplicateCount = 0;
 
       for (const p of pData) {
-        const key = `${p.ma_hang}-${p.mat_hang}`;
-        if (seen.has(key)) {
-          duplicateCount++;
-          continue;
-        }
-        seen.add(key);
         importedCount++;
 
         table.rows.add(
@@ -69,6 +65,8 @@ export const importProducts = async (req, res) => {
           p.with_vat || 0,
           p.without_vat || 0,
           p.vat || 0,
+          p.nhan_vien || "Không rõ",
+          p.product_group || "Khác"
         );
       }
 
@@ -78,23 +76,26 @@ export const importProducts = async (req, res) => {
       }
 
       await transaction.commit();
+
+      // Trigger summary update to sync dashboard
+      await updateSummaryReport();
+
       res.json({
         message: `Successfully imported ${importedCount} ${source.toUpperCase()} products for ${paddedMonth}/${year}`,
         summary: {
           ...summary,
-          imported: importedCount,
-          duplicateSkipped: duplicateCount
+          imported: importedCount
         }
       });
     } catch (err) {
       if (transaction) {
         try {
-          await transaction.rollback();
+          if (transaction.active) await transaction.rollback();
         } catch (rollbackErr) {
           console.error("Rollback Error:", rollbackErr);
         }
       }
-      throw err; // Re-throw to be caught by outer catch
+      throw err;
     }
   } catch (err) {
     console.error("General Error:", err);
@@ -103,7 +104,6 @@ export const importProducts = async (req, res) => {
       .json({
         error: "Import failed before database operation",
         details: err.message,
-        stack: err.stack,
       });
   }
 };

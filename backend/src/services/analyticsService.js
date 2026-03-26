@@ -211,7 +211,7 @@ export function aggregateChartData(filteredData, allData, filters, metricField) 
 /**
  * Aggregate data by category and month for line chart, pie chart and table
  */
-export function aggregateCategoryData(allData, filters, metricField) {
+export function aggregateCategoryData(allData, filters, metricField, groupField = "product_group") {
   const { year, month, quarter, mode } = filters;
   const targetYears = year ? String(year).split(',').map(y => parseInt(y.trim())) : [];
   const isNoYear = targetYears.length === 0 || isNaN(targetYears[0]);
@@ -233,7 +233,7 @@ export function aggregateCategoryData(allData, filters, metricField) {
     }
     
     // Normalize Category Name (CRITICAL: Remove newlines which appear in DB)
-    let cat = (item.product_group || "Khác").toString().replace(/[\r\n\t]+/g, " ").trim();
+    let cat = (item[groupField] || "Khác").toString().replace(/[\r\n\t]+/g, " ").trim();
     if (!cat) cat = "Khác";
 
     foundCategories.add(cat);

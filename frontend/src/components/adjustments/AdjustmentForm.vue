@@ -1,24 +1,31 @@
 <script setup>
-import { ref, computed, watch } from "vue";
-
-import { dashboardService } from "../../services/apiService";
+import { ref, computed, watch, onMounted, onUnmounted } from "vue";
+import { dashboardService, adjustmentService } from "../../services/apiService";
+import { useToast } from "../../composables/useToast";
 
 const props = defineProps({
-  staffList: Array,
   submitting: Boolean,
 });
 
-const emit = defineEmits(["submit", "year-change"]);
+const emit = defineEmits(["submit"]);
+const toast = useToast();
 
 const containerRef = ref(null);
 const showStaffDropdown = ref(false);
 const searchStaff = ref("");
+const availableStaffDetails = ref([]); // List of { nhan_vien, current_revenue, current_quantity }
 
 const filteredStaff = computed(() => {
-  if (!searchStaff.value) return props.staffList || [];
+  const list = availableStaffDetails.value.map((s) => s.nhan_vien) || [];
+  if (!searchStaff.value) return list;
   const query = searchStaff.value.toLowerCase().trim();
-  return (props.staffList || []).filter((s) =>
-    s.toLowerCase().includes(query)
+  return list.filter((s) => s.toLowerCase().includes(query));
+});
+
+const selectedStaffBalance = computed(() => {
+  if (!form.value.nhan_vien) return null;
+  return availableStaffDetails.value.find(
+    (s) => s.nhan_vien === form.value.nhan_vien,
   );
 });
 
@@ -31,7 +38,6 @@ const selectStaff = (staff) => {
 const handleClickOutside = (event) => {
   if (containerRef.value && !containerRef.value.contains(event.target)) {
     showStaffDropdown.value = false;
-    // Nếu người dùng chưa chọn gì nhưng đã gõ, có thể reset ô search về giá trị đã chọn (nếu muốn)
     if (!form.value.nhan_vien) {
       searchStaff.value = "";
     } else {
@@ -40,7 +46,6 @@ const handleClickOutside = (event) => {
   }
 };
 
-import { onMounted, onUnmounted } from "vue";
 onMounted(() => {
   document.addEventListener("mousedown", handleClickOutside);
 });
@@ -70,6 +75,32 @@ const fetchGroups = async () => {
   }
 };
 
+const fetchAvailableStaff = async () => {
+  if (!form.value.product_group || !form.value.source_type) {
+    availableStaffDetails.value = [];
+    return;
+  }
+  try {
+    const res = await adjustmentService.getAvailableStaff({
+      tr_year: form.value.tr_year,
+      tr_month: form.value.tr_month,
+      product_group: form.value.product_group,
+      source_type: form.value.source_type,
+    });
+    availableStaffDetails.value = res.data;
+    // Clear staff if current selection no longer exists
+    if (
+      form.value.nhan_vien &&
+      !res.data.find((s) => s.nhan_vien === form.value.nhan_vien)
+    ) {
+      form.value.nhan_vien = "";
+      searchStaff.value = "";
+    }
+  } catch (err) {
+    console.error("Failed to fetch staff:", err);
+  }
+};
+
 watch(
   () => form.value.source_type,
   () => {
@@ -80,27 +111,52 @@ watch(
 );
 
 watch(
-  () => form.value.tr_year,
-  (newYear) => {
-    // Clear staff when year changes because the available list will change
-    form.value.nhan_vien = "";
-    searchStaff.value = "";
-    emit("year-change", newYear);
-  }
+  [
+    () => form.value.tr_year,
+    () => form.value.tr_month,
+    () => form.value.product_group,
+  ],
+  () => {
+    fetchAvailableStaff();
+  },
 );
 
 const submitForm = () => {
+  if (selectedStaffBalance.value) {
+    if (
+      form.value.adj_quantity < 0 &&
+      Math.abs(form.value.adj_quantity) >
+        selectedStaffBalance.value.current_quantity
+    ) {
+      toast.error(
+        `Số lượng trừ đi không thể vượt quá ${selectedStaffBalance.value.current_quantity}`,
+      );
+      return;
+    }
+    if (
+      form.value.adj_amount < 0 &&
+      Math.abs(form.value.adj_amount) >
+        selectedStaffBalance.value.current_revenue
+    ) {
+      toast.error(
+        `Số tiền trừ đi không thể vượt quá ${selectedStaffBalance.value.current_revenue.toLocaleString()} VNĐ`,
+      );
+      return;
+    }
+  }
+
   emit("submit", { ...form.value });
-  // Reset numeric fields and notes after successful submit is handled by parent
 };
 
 defineExpose({
-  reset: () => {
+  reset: async () => {
     form.value.adj_quantity = 0;
     form.value.adj_amount = 0;
     form.value.note = "";
     form.value.nhan_vien = "";
     searchStaff.value = "";
+    // Re-fetch to update balances and show the list again if group is still selected
+    await fetchAvailableStaff();
   },
 });
 </script>
@@ -125,6 +181,7 @@ defineExpose({
     </h2>
 
     <form @submit.prevent="submitForm" class="space-y-4">
+      <!-- Time selection -->
       <div class="grid grid-cols-2 gap-4">
         <div>
           <label class="block text-sm font-bold text-gray-700 mb-1"
@@ -148,52 +205,13 @@ defineExpose({
           <input
             v-model.number="form.tr_year"
             type="number"
+            @focus="$event.target.select()"
             class="w-full p-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
           />
         </div>
       </div>
 
-      <div class="relative" ref="containerRef">
-        <label class="block text-sm font-bold text-gray-700 mb-1">Nhân viên</label>
-        <div class="relative group">
-          <input 
-            v-model="searchStaff" 
-            @focus="showStaffDropdown = true"
-            type="text" 
-            placeholder="-- Chọn hoặc gõ tìm kiếm nhân viên --"
-            class="w-full p-2.5 pr-10 border-2 border-gray-100 rounded-xl focus:border-blue-500 focus:ring-0 outline-none bg-gray-50/50 font-normal text-gray-800 placeholder-black transition-all"
-            :class="form.nhan_vien ? 'border-blue-100 bg-blue-50/10' : ''"
-          >
-          <div class="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none text-gray-400">
-            <svg class="w-5 h-5 transition-transform" :class="{ 'rotate-180': showStaffDropdown }" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
-            </svg>
-          </div>
-          
-          <!-- Dropdown với thiết kế Premium -->
-          <div 
-            v-if="showStaffDropdown" 
-            class="absolute z-50 w-full bg-white border border-gray-200 rounded-xl shadow-2xl max-h-60 overflow-y-auto mt-2 py-2 animate-in fade-in zoom-in duration-200"
-          >
-            <div v-if="filteredStaff.length === 0" class="px-4 py-3 text-center text-gray-400 italic text-sm">
-              Không tìm thấy nhân viên nào
-            </div>
-            <div 
-              v-for="staff in filteredStaff" 
-              :key="staff" 
-              @mousedown="selectStaff(staff)"
-              class="px-4 py-2.5 hover:bg-blue-600 hover:text-white cursor-pointer text-sm text-gray-700 transition-colors flex items-center justify-between"
-              :class="form.nhan_vien === staff ? 'bg-blue-50 font-bold text-blue-700' : ''"
-            >
-              <span>{{ staff }}</span>
-              <svg v-if="form.nhan_vien === staff" class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
-              </svg>
-            </div>
-          </div>
-        </div>
-      </div>
-
+      <!-- Source selection -->
       <div>
         <label class="flex items-center text-sm font-bold text-gray-700 mb-3">
           <svg
@@ -243,6 +261,7 @@ defineExpose({
         </div>
       </div>
 
+      <!-- Product group selection -->
       <div>
         <label class="block text-sm font-bold text-gray-700 mb-1"
           >Nhóm sản phẩm</label
@@ -258,6 +277,106 @@ defineExpose({
         </select>
       </div>
 
+      <!-- Staff selection (discovery from system) -->
+      <div class="relative" ref="containerRef">
+        <label class="block text-sm font-bold text-gray-700 mb-1"
+          >Nhân viên</label
+        >
+        <div class="relative group">
+          <input
+            v-model="searchStaff"
+            @focus="showStaffDropdown = true"
+            :disabled="!form.product_group"
+            type="text"
+            placeholder="-- Chọn nhân viên có trong hệ thống --"
+            class="w-full p-2.5 pr-10 border-2 border-gray-100 rounded-xl focus:border-blue-500 focus:ring-0 outline-none bg-gray-50/50 font-normal text-gray-800 placeholder-gray-400 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+            :class="form.nhan_vien ? 'border-blue-100 bg-blue-50/10' : ''"
+          />
+          <div
+            class="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none text-gray-400"
+          >
+            <svg
+              class="w-5 h-5 transition-transform"
+              :class="{ 'rotate-180': showStaffDropdown }"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M19 9l-7 7-7-7"
+              />
+            </svg>
+          </div>
+
+          <div
+            v-if="showStaffDropdown"
+            class="absolute z-50 w-full bg-white border border-gray-200 rounded-xl shadow-2xl max-h-60 overflow-y-auto mt-2 py-2 animate-in fade-in zoom-in duration-200"
+          >
+            <div
+              v-if="filteredStaff.length === 0"
+              class="px-4 py-3 text-center text-gray-400 italic text-sm"
+            >
+              {{
+                !form.product_group
+                  ? "Vui lòng chọn nhóm sản phẩm trước"
+                  : "Không tìm thấy nhân viên trùng khớp"
+              }}
+            </div>
+            <div
+              v-for="staff in filteredStaff"
+              :key="staff"
+              @mousedown="selectStaff(staff)"
+              class="px-4 py-2.5 hover:bg-blue-600 hover:text-white cursor-pointer text-sm text-gray-700 transition-colors flex items-center justify-between"
+              :class="
+                form.nhan_vien === staff
+                  ? 'bg-blue-50 font-bold text-blue-700'
+                  : ''
+              "
+            >
+              <span>{{ staff }}</span>
+              <svg
+                v-if="form.nhan_vien === staff"
+                class="w-4 h-4"
+                fill="currentColor"
+                viewBox="0 0 20 20"
+              >
+                <path
+                  fill-rule="evenodd"
+                  d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                  clip-rule="evenodd"
+                />
+              </svg>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Current Balance Info -->
+      <div
+        v-if="selectedStaffBalance"
+        class="bg-blue-50 p-4 rounded-xl border border-blue-100 animate-in fade-in slide-in-from-top-2"
+      >
+        <div class="flex items-center justify-between text-[13px] mb-1">
+          <span class="text-blue-600 font-bold">Doanh thu hiện có:</span>
+          <span class="text-blue-800 font-bold font-mono"
+            >{{
+              selectedStaffBalance.current_revenue.toLocaleString()
+            }}
+            VNĐ</span
+          >
+        </div>
+        <div class="flex items-center justify-between text-[13px]">
+          <span class="text-blue-600 font-bold">Số lượng hiện có:</span>
+          <span class="text-blue-800 font-bold font-mono"
+            >{{ selectedStaffBalance.current_quantity }} đơn</span
+          >
+        </div>
+      </div>
+
+      <!-- Adjustment values -->
       <div class="grid grid-cols-2 gap-4">
         <div>
           <label class="block text-sm font-bold text-gray-700 mb-1"
@@ -266,6 +385,7 @@ defineExpose({
           <input
             v-model.number="form.adj_quantity"
             type="number"
+            @focus="$event.target.select()"
             class="w-full p-2 border rounded-lg outline-none font-bold"
             :class="form.adj_quantity >= 0 ? 'text-green-600' : 'text-red-600'"
           />
@@ -277,12 +397,14 @@ defineExpose({
           <input
             v-model.number="form.adj_amount"
             type="number"
+            @focus="$event.target.select()"
             class="w-full p-2 border rounded-lg outline-none font-bold"
             :class="form.adj_amount >= 0 ? 'text-green-600' : 'text-red-600'"
           />
         </div>
       </div>
 
+      <!-- Note -->
       <div>
         <label class="block text-sm font-bold text-gray-700 mb-1"
           >Ghi chú</label
@@ -295,6 +417,7 @@ defineExpose({
         ></textarea>
       </div>
 
+      <!-- Submit button -->
       <button
         type="submit"
         :disabled="submitting || !form.nhan_vien"
@@ -316,7 +439,6 @@ defineExpose({
   opacity: 1;
 }
 
-/* Tùy chỉnh thanh cuộn cho dropdown */
 .overflow-y-auto::-webkit-scrollbar {
   width: 6px;
 }
@@ -332,7 +454,13 @@ defineExpose({
 }
 
 @keyframes animate-in {
-  from { opacity: 0; transform: translateY(-10px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 </style>

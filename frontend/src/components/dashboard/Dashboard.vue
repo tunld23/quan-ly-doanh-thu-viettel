@@ -31,7 +31,7 @@
       <!-- ACTUAL VIEW: Chart + Ranking + Table -->
       <div
         v-show="
-          viewMode === 'actual' &&
+          (viewMode === 'actual' || viewMode === 'subscriber') &&
           dashboardData &&
           hasActualData &&
           !isProcessing
@@ -53,7 +53,7 @@
                     ? isSinglePoint
                       ? `So sánh xu hướng ${activeMetric === "serviceCount" ? "số lượng" : "doanh thu"} ${timeLabel.toLowerCase()} qua các năm`
                       : `Biểu đồ so sánh doanh thu 12 tháng qua các năm`
-                    : `${activeMetric === "serviceCount" ? "Số lượng" : "Doanh Thu"} `
+                    : `${viewMode === 'subscriber' ? 'Số lượng thuê bao' : (activeMetric === "serviceCount" ? "Số lượng" : "Doanh Thu")} `
                 }}
               </div>
 
@@ -78,8 +78,8 @@
                 class="text-[14px] font-black text-gray-700 mb-6 uppercase tracking-wider flex items-center gap-2"
               >
                 <div class="w-1.5 h-4 bg-indigo-500 rounded-full"></div>
-                {{ dataType === "all" ? "Cơ cấu" : "Tỷ trọng đóng góp" }}
-                {{ activeMetric === "serviceCount" ? "Số lượng" : "Doanh Thu" }}
+                {{ viewMode === 'subscriber' ? 'Tỷ trọng thuê bao' : (dataType === "all" ? "Cơ cấu" : "Tỷ trọng đóng góp") }}
+                {{ viewMode === 'subscriber' ? '' : (activeMetric === "serviceCount" ? "Số lượng" : "Doanh Thu") }}
                 {{
                   dataType === "all"
                     ? selectedYear
@@ -134,7 +134,6 @@
               <table class="w-full text-left border-separate border-spacing-0">
                 <thead class="sticky top-0 z-20">
                   <tr class="bg-gray-50/90 backdrop-blur-md">
-                    <!-- Standard Product Breakdown View -->
                     <template v-if="!isComparisonMode && dataType === 'all'">
                       <th
                         class="p-4 text-left text-[11px] font-black text-gray-500 uppercase tracking-widest border-b border-gray-100 sticky left-0 bg-gray-50 z-30"
@@ -152,7 +151,7 @@
                       <th
                         class="p-4 text-[11px] font-black text-blue-700 uppercase tracking-widest border-b border-gray-200 text-right bg-blue-100 sticky right-0 z-30 shadow-[-6px_0_12px_rgba(43,84,255,0.15)] min-w-[120px]"
                       >
-                        Tổng tháng
+                        {{ viewMode === 'subscriber' ? 'Tổng TB' : 'Tổng tháng' }}
                       </th>
                     </template>
 
@@ -194,12 +193,14 @@
                       <td
                         v-for="catSeries in categoryData?.series || []"
                         :key="catSeries.name"
-                        class="p-4 text-[13px] font-bold text-gray-700 text-right font-mono tracking-tight"
+                        class="p-4 text-[13px] font-bold text-gray-700 text-right font-mono tracking-tight max-w-[140px] truncate"
+                        :title="formatValue(catSeries.data[idx])"
                       >
                         {{ formatValue(catSeries.data[idx]) }}
                       </td>
                       <td
-                        class="p-4 text-[13px] font-black text-blue-800 text-right bg-blue-50 sticky right-0 z-10 font-mono shadow-[-6px_0_12px_rgba(43,84,255,0.08)] group-hover:bg-blue-100"
+                        class="p-4 text-[13px] font-black text-blue-800 text-right bg-blue-50 sticky right-0 z-10 font-mono shadow-[-6px_0_12px_rgba(43,84,255,0.08)] group-hover:bg-blue-100 max-w-[150px] truncate"
+                        :title="formatValue(calculateMonthTotal(idx))"
                       >
                         {{ formatValue(calculateMonthTotal(idx)) }}
                       </td>
@@ -221,12 +222,14 @@
                       <td
                         v-for="year in comparisonData?.years || []"
                         :key="year"
-                        class="p-4 text-[13px] font-bold text-gray-600 text-right font-mono tracking-tight"
+                        class="p-4 text-[13px] font-bold text-gray-600 text-right font-mono tracking-tight max-w-[140px] truncate"
+                        :title="formatValue(comparisonData?.yearData[year][lIdx])"
                       >
                         {{ formatValue(comparisonData?.yearData[year][lIdx]) }}
                       </td>
                       <td
-                        class="p-4 text-[14px] font-black text-blue-800 text-right bg-white sticky right-0 z-10 font-mono shadow-[-6px_0_12px_rgba(43,84,255,0.12)] group-hover:bg-blue-50"
+                        class="p-4 text-[14px] font-black text-blue-800 text-right bg-white sticky right-0 z-10 font-mono shadow-[-6px_0_12px_rgba(43,84,255,0.12)] group-hover:bg-blue-50 max-w-[150px] truncate"
+                        :title="formatValue(calculateMonthTotalAcrossYears(lIdx))"
                       >
                         {{ formatValue(calculateMonthTotalAcrossYears(lIdx)) }}
                       </td>
@@ -479,8 +482,9 @@ const hasActualData = computed(() => {
     return hasRevenueTargetData.value || hasSubTargetData.value;
   }
 
-  // Check actual metrics
-  const m = activeMetric.value || "withoutVat";
+  // Use serviceCount automatically for subscriber mode if needed, 
+  // but hasActualData should check if ANY data exists.
+  const m = viewMode.value === 'subscriber' ? "serviceCount" : (activeMetric.value || "withoutVat");
   if (isComparisonMode.value) {
     const comp = dashboardData.value.comparisonData[m];
     if (!comp || !comp.years || comp.years.length === 0) return false;
@@ -520,6 +524,13 @@ watch(
   ],
   () => {
     if (!suppressFetch.value) {
+      // Automatic metric switching when toggling between Revenue and Subscriber tabs
+      if (viewMode.value === 'subscriber' && activeMetric.value !== 'serviceCount') {
+        activeMetric.value = 'serviceCount';
+        if (isComparisonMode.value) isComparisonMode.value = false;
+      } else if (viewMode.value === 'actual' && activeMetric.value === 'serviceCount') {
+        activeMetric.value = 'withoutVat';
+      }
       processData();
     }
   },
@@ -528,7 +539,7 @@ watch(
 // --- METHODS ---
 
 const initCharts = () => {
-  if (viewMode.value === "actual") {
+  if (viewMode.value === "actual" || viewMode.value === "subscriber") {
     // Dispose target charts if switching to actual
     if (revChartInstance.value) {
       revChartInstance.value.dispose();
@@ -600,7 +611,9 @@ const handleRefresh = async () => {
     toast.success("Dữ liệu đã được đồng bộ lại!");
     await processData();
   } catch (e) {
-    toast.error("Lỗi đồng bộ dữ liệu: " + (e.response?.data?.error || e.message));
+    toast.error(
+      "Lỗi đồng bộ dữ liệu: " + (e.response?.data?.error || e.message),
+    );
   } finally {
     globalLoading.value = false;
   }
@@ -635,6 +648,7 @@ const updateUI = () => {
     return;
   }
 
+  initCharts(); // Ensure charts are initialized for actual/subscriber modes
   if (!chartInstance.value) return;
   const metricObj = metrics.find((m) => m.id === activeMetric.value);
   const metricName = metricObj?.name || "Doanh thu";
@@ -695,7 +709,9 @@ const updateUI = () => {
     // Normal View Logic
     if (cat && chartInstance.value) {
       // Automatic switch to multi-year comparison if specific product selected
+      // But NOT for subscriber mode (where we want to see the subscribers)
       if (
+        viewMode.value !== "subscriber" &&
         dataType.value !== "all" &&
         comp &&
         comp.years &&
@@ -723,9 +739,11 @@ const updateUI = () => {
   if (pieChartInstance.value && cat) {
     let pieData = cat.pieData || [];
 
-    // If specific category is selected, show breakdown by year instead of by products
+    // If in Comparison Mode OR a specific category is selected, show breakdown by year instead of by products
+    // But NOT for subscriber mode (where we want to see the subscriber breakdown)
     if (
-      dataType.value !== "all" &&
+      viewMode.value !== "subscriber" &&
+      (dataType.value !== "all" || isComparisonMode.value) &&
       comp &&
       comp.years &&
       comp.years.length > 0
@@ -746,12 +764,15 @@ const updateUI = () => {
 };
 
 const formatValue = (val) => {
-  if (val === undefined || val === null) return "0";
-  if (activeMetric.value === "serviceCount") return val.toLocaleString("vi-VN");
-
-  if (val >= 1000000000) return (val / 1000000000).toFixed(2) + " tỷ";
-  if (val >= 1000000) return (val / 1000000).toFixed(1) + " tr";
-  return val.toLocaleString("vi-VN");
+  if (val === undefined || val === null || val === 0) return "-";
+  
+  // Requirement: Display in Millions for currency, raw for count. No unit, no grouping, dot for decimal.
+  if (activeMetric.value === "serviceCount") {
+    return val.toLocaleString("en-US", { useGrouping: false, maximumFractionDigits: 6 });
+  }
+  
+  const inMillions = val / 1000000;
+  return inMillions.toLocaleString("en-US", { useGrouping: false, maximumFractionDigits: 6 });
 };
 
 const calculateMonthTotal = (monthIdx) => {
@@ -811,11 +832,11 @@ const renderTargetCharts = () => {
     const detailType =
       metricType === "revenueRates" ? "revenueDetails" : "subDetails";
     const yearColors = [
-      ["#6366f1", "#4f46e5"],
-      ["#ec4899", "#db2777"],
-      ["#f59e0b", "#d97706"],
-      ["#10b981", "#059669"],
-      ["#06b6d4", "#0891b2"],
+      ["#3b82f6", "#2563eb"], // Blue 500 -> 600
+      ["#ef4444", "#dc2626"], // Red 500 -> 600
+      ["#22c55e", "#16a34a"], // Green 500 -> 600
+      ["#f97316", "#ea580c"], // Orange 500 -> 600
+      ["#a855f7", "#9333ea"], // Purple 500 -> 600
     ];
 
     const series = years.map((y, idx) => {

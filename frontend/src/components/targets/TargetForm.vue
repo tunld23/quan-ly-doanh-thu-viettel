@@ -141,7 +141,7 @@ const onSubmit = () => {
             placeholder="0"
           />
           <div class="absolute right-5 top-1/2 -translate-y-1/2 text-[10px] font-black text-gray-400 uppercase">
-            {{ form.type === "Doanh thu" ? "đ" : "tb" }}
+            {{ form.type === "Doanh thu" ? "VNĐ" : "tb" }}
           </div>
         </div>
       </div>

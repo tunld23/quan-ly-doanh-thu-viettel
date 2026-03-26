@@ -17,6 +17,7 @@ import { importSales } from "../controllers/salesController.js";
 import { 
   getAdjustments, 
   createAdjustment, 
+  getAvailableStaff,
   deleteAdjustment 
 } from "../controllers/adjustmentController.js";
 import {
@@ -39,6 +40,7 @@ router.get("/staff", getStaffNames);
 
 // Adjustments
 router.get("/adjustments", getAdjustments);
+router.get("/adjustments/available-staff", getAvailableStaff);
 router.post("/adjustments", createAdjustment);
 router.delete("/adjustments/:id", deleteAdjustment);
 

@@ -9,17 +9,18 @@ async function clearAll() {
       "adjustments",
       "summary_report",
       "targets",
-      "product_type"
+      "product_type",
+      "staff_service_count"
     ];
 
-    console.log("Starting database cleanup...");
+    console.log("Starting database cleanup (Dropping tables)...");
 
     for (const table of tables) {
       try {
-        await db.request().query(`DELETE FROM ${table}`);
-        console.log(`Cleared table: ${table}`);
+        await db.request().query(`IF OBJECT_ID('${table}', 'U') IS NOT NULL DROP TABLE ${table}`);
+        console.log(`Dropped table: ${table}`);
       } catch (err) {
-        console.error(`Error clearing ${table}:`, err.message);
+        console.error(`Error dropping ${table}:`, err.message);
       }
     }
 

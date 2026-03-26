@@ -112,7 +112,7 @@ const onDelete = (target) => {
             <td class="px-6 py-4 text-right text-sm font-black text-gray-900 tabular-nums">
               {{ t.amount.toLocaleString("vi-VN") }}
               <span class="text-[9px] text-gray-400 font-normal ml-0.5 uppercase tracking-tighter">
-                {{ t.type === "Doanh thu" ? "đ" : "tb" }}
+                {{ t.type === "Doanh thu" ? "VNĐ" : "tb" }}
               </span>
             </td>
             <td class="px-6 py-4 text-right">

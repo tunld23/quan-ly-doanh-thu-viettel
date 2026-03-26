@@ -1,17 +1,14 @@
 import * as echarts from "echarts";
 
 const formatMoney = (val, isCurrency = true) => {
-  if (val === 0) return "0";
-  const absVal = Math.abs(val);
-  if (isCurrency) {
-    if (absVal >= 1e9) {
-      return (val / 1e9).toFixed(2).replace(/\.?0+$/, "") + " B";
-    }
-    if (absVal >= 1e6) {
-      return (val / 1e6).toFixed(1).replace(/\.?0+$/, "") + " M";
-    }
-  }
-  return val.toLocaleString("vi-VN");
+  if (val === 0 || !val) return "0";
+  if (!isCurrency) return val.toLocaleString("en-US", { useGrouping: false });
+
+  const inMillions = val / 1000000;
+  return inMillions.toLocaleString("en-US", {
+    useGrouping: false,
+    maximumFractionDigits: 6,
+  });
 };
 
 export const getShortName = (name) => {
@@ -24,47 +21,45 @@ export const getShortName = (name) => {
 };
 
 const CATEGORY_COLOR_MAP = {
-  CA: "#6366f1", // Indigo
-  "Internet truyền hình": "#10b981", // Emerald
-  Internet: "#06b6d4", // Cyan
-  HDDT: "#ec4899", // Pink
-  "Hóa đơn (HDDT)": "#f43f5e", // Rose
-  "Hóa đơn": "#d946ef", // Fuchsia
-  vTracking: "#f59e0b", // Amber
-  vBHXH: "#8b5cf6", // Violet
-  vContract: "#3b82f6", // Blue
-  HDDTV: "#14b8a6", // Teal
-  EasyBooks: "#f97316", // Orange
-  Tendoo: "#84cc16", // Lime
-  MySign: "#0ea5e9", // Sky
-  "Digital Signature": "#4338ca", // Dark Indigo
-  vBHXHV: "#7c3aed", // Dark Violet
-  SME: "#1e293b", // Slate
+  CA: "#3b82f6", // Blue 500
+  "Internet truyền hình": "#22c55e", // Green 500
+  Internet: "#22c55e",
+  HDDT: "#ef4444", // Red 500
+  "Hóa đơn (HDDT)": "#ef4444",
+  "Hóa đơn": "#ef4444",
+  vTracking: "#f97316", // Orange 500
+  BHXH: "#a855f7", // Purple 500
+  vBHXH: "#a855f7",
+  "CAM10(DTDV)": "#14b8a6", // Teal 500
+  vContract: "#ec4899", // Pink 500
+  HDDTV: "#6366f1", // Indigo 500
+  Easybooks: "#eab308", // Yellow 500
+  Tendoo: "#84cc16", // Lime 500
+  MySign: "#38bdf8", // Sky 400
 };
 
 const DEFAULT_COLORS = [
-  // 1-10: Professional
-  "#6366f1",
-  "#10b981",
-  "#ec4899",
-  "#f59e0b",
-  "#8b5cf6",
-  "#3b82f6",
-  "#06b6d4",
-  "#f43f5e",
-  "#84cc16",
-  "#0ea5e9",
-  // 11-20: Vibrant
-  "#ef4444",
-  "#a855f7",
-  "#14b8a6",
-  "#f97316",
-  "#64748b",
-  "#d946ef",
-  "#22c55e",
-  "#eab308",
-  "#4f46e5",
-  "#059669",
+  // 1-10: Bright Distinct Professional (Level 500)
+  "#3b82f6", // Blue
+  "#22c55e", // Green
+  "#ef4444", // Red
+  "#f97316", // Orange
+  "#a855f7", // Purple
+  "#14b8a6", // Teal
+  "#ec4899", // Pink
+  "#eab308", // Yellow
+  "#6366f1", // Indigo
+  "#84cc16", // Lime
+  "#38bdf8", // Sky
+  "#8b5cf6", // Violet
+  "#fb923c", // Light Orange
+  "#22d3ee", // Cyan
+  "#f43f5e", // Rose
+  "#4ade80", // Light Green
+  "#60a5fa", // Light Blue
+  "#c084fc", // Light Purple
+  "#fbbf24", // Amber
+  "#34d399", // Emerald
   // 21-30: Deep
   "#db2777",
   "#d97706",
@@ -260,7 +255,7 @@ export const getUpdateOption = (
             let res = formatMoney(curVal, isCurrency);
 
             if (oldVal > 0 && curVal > 0) {
-              const growth = getGrowth(curVal, oldVal);
+              const growth = (((curVal - oldVal) / oldVal) * 100).toFixed(1);
               const icon = growth >= 0 ? "▲" : "▼";
               res += `\n{${growth >= 0 ? "up" : "down"}|${icon}${Math.abs(growth)}%}`;
             }
@@ -304,7 +299,7 @@ export const getUpdateOption = (
         let res = `<div style="font-weight:bold;margin-bottom:8px;border-bottom:1px solid #f0f0f0;padding-bottom:6px;font-size:13px;">${p.name}</div>`;
         res += `<div style="display:flex;justify-content:space-between;gap:30px;margin-bottom:2px;">
           <span style="color:#666;">${p.marker} ${p.seriesName}:</span>
-          <span style="font-weight:bold;color:#1e293b;">${curVal.toLocaleString("vi-VN")}${isCurrency ? " VNĐ" : ""}</span>
+          <span style="font-weight:bold;color:#1e293b;">${formatMoney(curVal, isCurrency)}</span>
         </div>`;
 
         if (oldVal > 0 && curVal > 0) {
@@ -343,12 +338,12 @@ export const getComparisonOption = (data, metricName, metricId = "") => {
   // Professional Gradient Blue (Decreasing intensity from Newest to Oldest)
   // Professional Colors for Year-over-year comparison (High contrast)
   const colors = [
-    "#2563eb", // Blue (Main/Oldest)
-    "#1e293b", // Slate
-    "#10b981", // Emerald
-    "#f59e0b", // Amber
-    "#f43f5e", // Rose
-    "#8b5cf6", // Violet
+    "#3b82f6", // Blue
+    "#ef4444", // Red
+    "#22c55e", // Green
+    "#f97316", // Orange
+    "#a855f7", // Purple
+    "#14b8a6", // Teal
   ];
 
   displayYears.forEach((y, idx) => {
@@ -487,7 +482,7 @@ export const getComparisonOption = (data, metricName, metricId = "") => {
               ${p.marker} <span style="font-weight:bold;">Năm ${p.seriesName}:</span>
             </div>
             <div style="text-align:right;">
-              <div style="font-weight:black;color:#1e293b;">${curVal.toLocaleString("vi-VN")}${isCurrency ? " VNĐ" : ""}</div>`;
+              <div style="font-weight:black;color:#1e293b;">${formatMoney(curVal, isCurrency)}</div>`;
 
           if (prevVal && prevVal > 0 && curVal > 0) {
             const growth = getGrowth(curVal, prevVal);
@@ -692,7 +687,8 @@ export const getCategoryPieOption = (pieData, metricName, metricId = "") => {
       padding: [12, 16],
       borderRadius: 12,
       borderWidth: 0,
-      extraCssText: "box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);",
+      extraCssText:
+        "box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1); z-index: 100;",
       formatter: (p) => {
         return `<div style="font-weight:800;color:#1e293b;margin-bottom:8px;border-bottom:1px solid #f1f5f9;padding-bottom:6px;">${getShortName(p.name)}</div>
                 <div style="display:flex;justify-content:space-between;gap:30px;margin-bottom:6px;">
@@ -705,29 +701,37 @@ export const getCategoryPieOption = (pieData, metricName, metricId = "") => {
                 </div>`;
       },
     },
-    // Requirement 2: Legend below, vertical stack, show ALL items
     legend: {
       show: true,
+      type: "scroll",
       orient: "vertical",
-      top: "62%", // Adjusted for more space
-      left: "center",
+      top: "40%",
+      left: "center", 
       icon: "circle",
-      padding: [0, 0, 5, 0],
+      padding: [10, 0, 10, 0],
       itemWidth: 10,
       itemHeight: 10,
-      itemGap: 8,
-      // Requirement: Formatter [Name] : [Value] ( [Percent]% ) with 2 decimals
+      itemGap: 10,
       formatter: (name) => {
         const item = data.find((d) => d.name === name);
         const percent = item ? ((item.value / total) * 100).toFixed(2) : 0;
-        const value = item ? formatMoney(item.value, isCurrency) : 0;
+
+        // Show RAW full numbers in millions for currency (as requested: 120.950912 style)
+        let valueStr = "-";
+        if (item && item.value !== 0) {
+          const rawVal = isCurrency ? item.value / 1000000 : item.value;
+          valueStr = rawVal.toLocaleString("en-US", {
+            useGrouping: false,
+            maximumFractionDigits: 6,
+          });
+        }
         const displayName = getShortName(name);
-        return `${displayName.padEnd(12, " ")} : ${value} ( ${percent}% )`;
+        return `${displayName.padEnd(12, " ")} : ${valueStr} (${percent}%)`;
       },
       textStyle: {
-        fontSize: 10, // Slightly smaller to fit more items
+        fontSize: 10,
         fontWeight: "700",
-        color: "#64748b",
+        color: "#475569",
         fontFamily: "monospace",
       },
     },
@@ -736,36 +740,36 @@ export const getCategoryPieOption = (pieData, metricName, metricId = "") => {
       {
         name: metricName,
         type: "pie",
-        // Requirement 3: Traditional solid pie
-        radius: "55%", // Slightly smaller to ensure space for legend
-        center: ["50%", "30%"],
+        radius: ["0%", "50%"],
+        center: ["50%", "23%"],
         avoidLabelOverlap: true,
         itemStyle: {
-          borderRadius: 0,
+          borderRadius: 8,
           borderColor: "#fff",
-          borderWidth: 1,
+          borderWidth: 2,
         },
-        // Requirement 1: Per-item labels (INSIDE for >= 3%, Hidden for < 3%)
         data: data.map((item) => {
           const percent = (item.value / total) * 100;
-          const isLarge = percent >= 3;
+          const isLarge = percent >= 8;
           return {
             ...item,
             label: {
               show: isLarge,
               position: "inside",
               formatter: "{d}%",
-              fontSize: 12,
-              fontWeight: "bold",
+              fontSize: 10,
+              fontWeight: "900",
               color: "#fff",
+              textShadowBlur: 4,
+              textShadowColor: "rgba(0,0,0,0.3)",
             },
-            labelLine: { show: false }, // Requirement: No external lines
+            labelLine: { show: false },
           };
         }),
         emphasis: {
           scale: true,
           scaleSize: 10,
-          itemStyle: { shadowBlur: 20, shadowColor: "rgba(0,0,0,0.1)" },
+          itemStyle: { shadowBlur: 20, shadowColor: "rgba(0,0,0,0.15)" },
         },
       },
     ],

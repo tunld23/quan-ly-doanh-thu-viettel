@@ -4,78 +4,65 @@ export const updateSummaryReport = async () => {
   const db = await getDb();
   console.log("Updating summary_report table...");
 
-  // 1. Tạo bảng nếu chưa có
+  // 1. Ensure table exists (without service_count)
   await db.request().query(`
     IF OBJECT_ID('summary_report', 'U') IS NULL
-    CREATE TABLE summary_report (
-      tr_year INT,
-      tr_month NVARCHAR(2),
-      nhan_vien NVARCHAR(255),
-      product_group NVARCHAR(255),
-      source_type NVARCHAR(50),
-      service_count INT,
-      total_amount FLOAT
-    )
+    BEGIN
+      CREATE TABLE summary_report (
+        tr_year INT,
+        tr_month NVARCHAR(2),
+        nhan_vien NVARCHAR(255),
+        product_group NVARCHAR(255),
+        source_type NVARCHAR(50),
+        total_amount FLOAT
+      );
+    END
   `);
 
   // 2. Xóa dữ liệu cũ và nạp dữ liệu mới bằng GROUP BY
   // Chúng ta sử dụng UNION ALL để gộp dữ liệu từ 2 nguồn: Dữ liệu file (detail) và Dữ liệu điều chỉnh (adjustments)
   await db.request().query(`
     TRUNCATE TABLE summary_report;
+    TRUNCATE TABLE staff_service_count;
     
-    INSERT INTO summary_report (tr_year, tr_month, nhan_vien, product_group, source_type, service_count, total_amount)
+    -- 1. Populate staff_service_count strictly from detail table (counting staff/records)
+    INSERT INTO staff_service_count (tr_year, tr_month, nhan_vien, product_group, source_type, service_count)
+    SELECT 
+      tr_year, 
+      tr_month, 
+      nhan_vien, 
+      product_group, 
+      source_type,
+      COUNT(*) as service_count
+    FROM detail
+    GROUP BY tr_year, tr_month, nhan_vien, product_group, source_type;
+
+    -- 2. Populate summary_report by merging Revenue (from product + adjustments)
+    INSERT INTO summary_report (tr_year, tr_month, nhan_vien, product_group, source_type, total_amount)
     SELECT 
       t.tr_year, 
       t.tr_month, 
       t.nhan_vien, 
-      t.product_group,
+      t.product_group, 
       t.source_type,
-      SUM(t.qty) as service_count,
-      SUM(t.amt) as total_amount
+      SUM(t.revenue) as total_amount
     FROM (
-      -- Nhóm 1: Dữ liệu từ file Sales
+      -- Source A: Revenue from product table
       SELECT 
-        d.tr_year, 
-        d.tr_month, 
-        d.nhan_vien, 
-        d.product_group, 
-        d.source_type,
-        d.amount as qty,
-        -- Price * Quantity (Unit price from Product table)
-        ISNULL(ISNULL(p.price, p_fallback.price), 0) * d.amount as amt
-      FROM detail d
-      LEFT JOIN (
-         -- Lấy giá của sản phẩm trong đúng tháng/năm
-         SELECT ma_hang, mat_hang, tr_year, tr_month, MAX(without_vat) as price
-         FROM product
-         GROUP BY ma_hang, mat_hang, tr_year, tr_month
-      ) p ON d.ma_hang = p.ma_hang AND d.mat_hang = p.mat_hang AND d.tr_year = p.tr_year AND d.tr_month = p.tr_month
-      LEFT JOIN (
-         -- Fallback: Nếu không có giá tháng này, lấy giá mới nhất của sản phẩm đó
-         SELECT ma_hang, mat_hang, MAX(without_vat) as price
-         FROM product p1
-         WHERE tr_year * 100 + CAST(tr_month AS INT) = (
-            SELECT MAX(tr_year * 100 + CAST(tr_month AS INT)) 
-            FROM product p2 
-            WHERE p2.ma_hang = p1.ma_hang AND p2.mat_hang = p1.mat_hang
-         )
-         GROUP BY ma_hang, mat_hang
-      ) p_fallback ON d.ma_hang = p_fallback.ma_hang AND d.mat_hang = p_fallback.mat_hang
+        tr_year, tr_month, nhan_vien, product_group, source_type,
+        ISNULL(without_vat, 0) as revenue
+      FROM product
       
       UNION ALL
       
-      -- Nhóm 2: Dữ liệu điều chỉnh thủ công
+      -- Source C: Manual Adjustments (revenue only for summary)
       SELECT 
-        tr_year, 
-        tr_month, 
-        nhan_vien, 
-        product_group, 
+        tr_year, tr_month, nhan_vien, product_group, 
         ISNULL(source_type, 'manual') as source_type,
-        adj_quantity as qty, 
-        adj_amount as amt
+        ISNULL(adj_amount, 0) as revenue
       FROM adjustments
     ) t
-    GROUP BY t.tr_year, t.tr_month, t.nhan_vien, t.product_group, t.source_type
+    GROUP BY t.tr_year, t.tr_month, t.nhan_vien, t.product_group, t.source_type;
   `);
 
   console.log("Summary report updated successfully!");
