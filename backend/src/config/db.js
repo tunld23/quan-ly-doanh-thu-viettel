@@ -6,6 +6,13 @@ dotenv.config();
 const config = {
   driver: "msnodesqlv8",
   connectionString: `Driver={ODBC Driver 17 for SQL Server};Server=${process.env.DB_SERVER || "localhost"};Database=${process.env.DB_NAME || "ThongKeDoanhThu"};Trusted_Connection=yes;`,
+  requestTimeout: 300000,
+  connectionTimeout: 300000,
+  pool: {
+    max: 10,
+    min: 0,
+    idleTimeoutMillis: 30000
+  }
 };
 
 // SQL Authentication fallback
@@ -21,6 +28,8 @@ if (process.env.DB_USER && process.env.DB_PASSWORD) {
     encrypt: false,
     trustedConnection: false,
   };
+  config.requestTimeout = 300000; // 5 minutes
+  config.connectionTimeout = 300000; // 5 minutes
 }
 
 /**
