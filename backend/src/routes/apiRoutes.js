@@ -25,6 +25,9 @@ import {
   createTarget,
   deleteTarget
 } from "../controllers/targetController.js";
+import authRoutes from "./authRoutes.js";
+import userRoutes from "./userRoutes.js";
+import adminRoutes from "./adminRoutes.js";
 
 const router = express.Router();
 const upload = multer({ storage: multer.memoryStorage() });
@@ -52,5 +55,10 @@ router.delete("/targets", deleteTarget);
 // New Product Import Route
 router.post("/products/import", upload.single("file"), importProducts);
 router.post("/sales/import", upload.single("file"), importSales);
+
+// Auth & Profiles
+router.use("/auth", authRoutes);
+router.use("/user", userRoutes);
+router.use("/admin", adminRoutes);
 
 export default router;

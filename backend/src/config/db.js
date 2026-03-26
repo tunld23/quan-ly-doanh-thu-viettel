@@ -273,10 +273,48 @@ async function initDb(db) {
       IF EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('targets') AND name = 'id')
         ALTER TABLE targets DROP COLUMN id;
     END
+
+    IF OBJECT_ID('users', 'U') IS NULL
+    BEGIN
+      CREATE TABLE users (
+        id NVARCHAR(255) PRIMARY KEY,
+        username NVARCHAR(255) NOT NULL UNIQUE,
+        email NVARCHAR(255) NOT NULL,
+        password NVARCHAR(255) NOT NULL,
+        role NVARCHAR(50) DEFAULT 'user',
+        refresh_token NVARCHAR(MAX)
+      );
+    END
   `;
   try {
     await db.request().query(schema);
     console.log("Database schema verified.");
+
+    // Seed default users if empty
+    const userCountResult = await db.request().query("SELECT COUNT(*) as cnt FROM users");
+    if (userCountResult.recordset[0].cnt === 0) {
+      const bcrypt = await import("bcryptjs");
+      const passAdmin = bcrypt.default.hashSync("admin@123", 10);
+      const passUser = bcrypt.default.hashSync("user1@123", 10);
+      const pass1 = bcrypt.default.hashSync("1", 10);
+      
+      const request = db.request();
+      request.input('passAdmin', sql.NVarChar, passAdmin);
+      request.input('passUser', sql.NVarChar, passUser);
+      request.input('pass1', sql.NVarChar, pass1);
+      
+      const seedSql = `
+        INSERT INTO users (id, username, email, password, role) VALUES 
+        ('1', 'admin', 'admin@viettel.com.vn', @passAdmin, 'admin'),
+        ('2', 'user1', 'user1@viettel.com.vn', @passUser, 'user'),
+        ('3', 'huanvx', 'huanvx@viettel.com.vn', @pass1, 'admin'),
+        ('4', 'quangdd', 'quangdd@viettel.com.vn', @pass1, 'admin'),
+        ('5', 'tuyennb', 'tuyennb@viettel.com.vn', @pass1, 'admin'),
+        ('6', 'anhlhl', 'anhlhl@viettel.com.vn', @pass1, 'admin');
+      `;
+      await request.query(seedSql);
+      console.log("Seeded default users into database.");
+    }
   } catch (err) {
     console.error("Schema initialization failed:", err.message);
   }

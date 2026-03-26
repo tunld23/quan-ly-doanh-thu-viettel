@@ -38,67 +38,8 @@
         "
         class="p-8 bg-white flex-1 w-full space-y-12"
       >
-        <!-- TOP ROW: Line Chart & Pie Chart -->
+        <!-- TOP ROW: Table & Ranking -->
         <div class="grid grid-cols-1 lg:grid-cols-12 gap-10">
-          <div
-            class="lg:col-span-8 relative bg-gray-50/50 p-6 rounded-3xl border border-gray-100/50"
-          >
-            <h3
-              class="text-[18px] text-gray-800 mb-6 font-black flex items-center justify-between"
-            >
-              <div class="flex items-center gap-3">
-                <div class="w-1.5 h-6 bg-blue-600 rounded-full"></div>
-                {{
-                  isComparisonMode
-                    ? isSinglePoint
-                      ? `So sánh xu hướng ${activeMetric === "serviceCount" ? "số lượng" : "doanh thu"} ${timeLabel.toLowerCase()} qua các năm`
-                      : `Biểu đồ so sánh doanh thu 12 tháng qua các năm`
-                    : `${viewMode === 'subscriber' ? 'Số lượng thuê bao' : (activeMetric === "serviceCount" ? "Số lượng" : "Doanh Thu")} `
-                }}
-              </div>
-
-              <button
-                v-if="isComparisonMode"
-                @click="exitComparison"
-                class="text-[11px] font-black text-blue-600 hover:bg-blue-600 hover:text-white bg-white px-4 py-2 rounded-xl border border-blue-100 uppercase tracking-widest transition-all shadow-sm active:scale-95"
-              >
-                Thoát so sánh
-              </button>
-            </h3>
-            <div class="relative w-full h-[420px]">
-              <div ref="chartRef" class="w-full h-full"></div>
-            </div>
-          </div>
-
-          <div class="lg:col-span-4">
-            <div
-              class="bg-gray-50/50 p-5 rounded-3xl border border-gray-100 h-full flex flex-col"
-            >
-              <h4
-                class="text-[14px] font-black text-gray-700 mb-6 uppercase tracking-wider flex items-center gap-2"
-              >
-                <div class="w-1.5 h-4 bg-indigo-500 rounded-full"></div>
-                {{ viewMode === 'subscriber' ? 'Tỷ trọng thuê bao' : (dataType === "all" ? "Cơ cấu" : "Tỷ trọng đóng góp") }}
-                {{ viewMode === 'subscriber' ? '' : (activeMetric === "serviceCount" ? "Số lượng" : "Doanh Thu") }}
-                {{
-                  dataType === "all"
-                    ? selectedYear
-                      ? "(Năm " + selectedYear + ")"
-                      : "(Tổng cộng)"
-                    : "Theo Năm"
-                }}
-              </h4>
-              <div class="relative w-full flex-1 min-h-[420px]">
-                <div ref="pieChartRef" class="w-full h-full"></div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- BOTTOM ROW: Table & Ranking -->
-        <div
-          class="grid grid-cols-1 lg:grid-cols-12 gap-10 pt-10 border-t border-gray-100"
-        >
           <div class="lg:col-span-8 space-y-6">
             <div class="flex items-center justify-between">
               <h3
@@ -151,7 +92,9 @@
                       <th
                         class="p-4 text-[11px] font-black text-blue-700 uppercase tracking-widest border-b border-gray-200 text-right bg-blue-100 sticky right-0 z-30 shadow-[-6px_0_12px_rgba(43,84,255,0.15)] min-w-[120px]"
                       >
-                        {{ viewMode === 'subscriber' ? 'Tổng TB' : 'Tổng tháng' }}
+                        {{
+                          viewMode === "subscriber" ? "Tổng TB" : "Tổng tháng"
+                        }}
                       </th>
                     </template>
 
@@ -223,13 +166,17 @@
                         v-for="year in comparisonData?.years || []"
                         :key="year"
                         class="p-4 text-[13px] font-bold text-gray-600 text-right font-mono tracking-tight max-w-[140px] truncate"
-                        :title="formatValue(comparisonData?.yearData[year][lIdx])"
+                        :title="
+                          formatValue(comparisonData?.yearData[year][lIdx])
+                        "
                       >
                         {{ formatValue(comparisonData?.yearData[year][lIdx]) }}
                       </td>
                       <td
                         class="p-4 text-[14px] font-black text-blue-800 text-right bg-white sticky right-0 z-10 font-mono shadow-[-6px_0_12px_rgba(43,84,255,0.12)] group-hover:bg-blue-50 max-w-[150px] truncate"
-                        :title="formatValue(calculateMonthTotalAcrossYears(lIdx))"
+                        :title="
+                          formatValue(calculateMonthTotalAcrossYears(lIdx))
+                        "
                       >
                         {{ formatValue(calculateMonthTotalAcrossYears(lIdx)) }}
                       </td>
@@ -292,6 +239,75 @@
               :rankings="rankings"
               :is-comparison-mode="isComparisonMode"
             />
+          </div>
+        </div>
+
+        <!-- BOTTOM ROW: Line Chart & Pie Chart -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-10 pt-10 border-t border-gray-100">
+          <div
+            class="lg:col-span-8 relative bg-gray-50/50 p-6 rounded-3xl border border-gray-100/50"
+          >
+            <h3
+              class="text-[18px] text-gray-800 mb-6 font-black flex items-center justify-between"
+            >
+              <div class="flex items-center gap-3">
+                <div class="w-1.5 h-6 bg-blue-600 rounded-full"></div>
+                {{
+                  isComparisonMode
+                    ? isSinglePoint
+                      ? `So sánh xu hướng ${activeMetric === "serviceCount" ? "số lượng" : "doanh thu"} ${timeLabel.toLowerCase()} qua các năm`
+                      : `Biểu đồ so sánh doanh thu 12 tháng qua các năm`
+                    : `${viewMode === "subscriber" ? "Số lượng thuê bao" : activeMetric === "serviceCount" ? "Số lượng" : "Doanh Thu"} `
+                }}
+              </div>
+
+              <button
+                v-if="isComparisonMode"
+                @click="exitComparison"
+                class="text-[11px] font-black text-blue-600 hover:bg-blue-600 hover:text-white bg-white px-4 py-2 rounded-xl border border-blue-100 uppercase tracking-widest transition-all shadow-sm active:scale-95"
+              >
+                Thoát so sánh
+              </button>
+            </h3>
+            <div class="relative w-full h-[420px]">
+              <div ref="chartRef" class="w-full h-full"></div>
+            </div>
+          </div>
+
+          <div class="lg:col-span-4">
+            <div
+              class="bg-gray-50/50 p-5 rounded-3xl border border-gray-100 h-full flex flex-col"
+            >
+              <h4
+                class="text-[14px] font-black text-gray-700 mb-6 uppercase tracking-wider flex items-center gap-2"
+              >
+                <div class="w-1.5 h-4 bg-indigo-500 rounded-full"></div>
+                {{
+                  viewMode === "subscriber"
+                    ? "Tỷ trọng thuê bao"
+                    : dataType === "all"
+                      ? "Cơ cấu"
+                      : "Tỷ trọng đóng góp"
+                }}
+                {{
+                  viewMode === "subscriber"
+                    ? ""
+                    : activeMetric === "serviceCount"
+                      ? "Số lượng"
+                      : "Doanh Thu"
+                }}
+                {{
+                  dataType === "all"
+                    ? selectedYear
+                      ? "(Năm " + selectedYear + ")"
+                      : "(Tổng cộng)"
+                    : "Theo Năm"
+                }}
+              </h4>
+              <div class="relative w-full flex-1 min-h-[420px]">
+                <div ref="pieChartRef" class="w-full h-full"></div>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -482,9 +498,12 @@ const hasActualData = computed(() => {
     return hasRevenueTargetData.value || hasSubTargetData.value;
   }
 
-  // Use serviceCount automatically for subscriber mode if needed, 
+  // Use serviceCount automatically for subscriber mode if needed,
   // but hasActualData should check if ANY data exists.
-  const m = viewMode.value === 'subscriber' ? "serviceCount" : (activeMetric.value || "withoutVat");
+  const m =
+    viewMode.value === "subscriber"
+      ? "serviceCount"
+      : activeMetric.value || "withoutVat";
   if (isComparisonMode.value) {
     const comp = dashboardData.value.comparisonData[m];
     if (!comp || !comp.years || comp.years.length === 0) return false;
@@ -525,11 +544,17 @@ watch(
   () => {
     if (!suppressFetch.value) {
       // Automatic metric switching when toggling between Revenue and Subscriber tabs
-      if (viewMode.value === 'subscriber' && activeMetric.value !== 'serviceCount') {
-        activeMetric.value = 'serviceCount';
+      if (
+        viewMode.value === "subscriber" &&
+        activeMetric.value !== "serviceCount"
+      ) {
+        activeMetric.value = "serviceCount";
         if (isComparisonMode.value) isComparisonMode.value = false;
-      } else if (viewMode.value === 'actual' && activeMetric.value === 'serviceCount') {
-        activeMetric.value = 'withoutVat';
+      } else if (
+        viewMode.value === "actual" &&
+        activeMetric.value === "serviceCount"
+      ) {
+        activeMetric.value = "withoutVat";
       }
       processData();
     }
@@ -765,14 +790,20 @@ const updateUI = () => {
 
 const formatValue = (val) => {
   if (val === undefined || val === null || val === 0) return "-";
-  
+
   // Requirement: Display in Millions for currency, raw for count. No unit, no grouping, dot for decimal.
   if (activeMetric.value === "serviceCount") {
-    return val.toLocaleString("en-US", { useGrouping: false, maximumFractionDigits: 6 });
+    return val.toLocaleString("en-US", {
+      useGrouping: false,
+      maximumFractionDigits: 6,
+    });
   }
-  
+
   const inMillions = val / 1000000;
-  return inMillions.toLocaleString("en-US", { useGrouping: false, maximumFractionDigits: 6 });
+  return inMillions.toLocaleString("en-US", {
+    useGrouping: false,
+    maximumFractionDigits: 6,
+  });
 };
 
 const calculateMonthTotal = (monthIdx) => {
