@@ -73,11 +73,25 @@ async function initDb(db) {
           ALTER TABLE product DROP COLUMN id;
        END
 
-       -- Handle PK creation/update
+       -- Force update PK: Drop ANY existing PKs
+       DECLARE @curr_pk NVARCHAR(255);
+       WHILE EXISTS (SELECT * FROM sys.key_constraints WHERE type = 'PK' AND parent_object_id = OBJECT_ID('product'))
+       BEGIN
+          SELECT TOP 1 @curr_pk = name FROM sys.key_constraints WHERE type = 'PK' AND parent_object_id = OBJECT_ID('product');
+          EXEC('ALTER TABLE product DROP CONSTRAINT ' + @curr_pk);
+       END
+       
+       -- Deduplicate data to allow adding the new composite PK
+       IF OBJECT_ID('temp_dedup_product', 'U') IS NOT NULL DROP TABLE temp_dedup_product;
+       WITH CTE AS (
+          SELECT *, ROW_NUMBER() OVER (PARTITION BY tr_year, tr_month, ma_hang, mat_hang, nhan_vien ORDER BY (SELECT NULL)) as RN
+          FROM product
+       )
+       DELETE FROM CTE WHERE RN > 1;
+
+       -- Add the new PK if it doesn't exist
        IF NOT EXISTS (SELECT * FROM sys.key_constraints WHERE type = 'PK' AND parent_object_id = OBJECT_ID('product'))
        BEGIN
-          -- Try to add the PK, but ignore if there are duplicates for now (user should clear data or fix)
-          -- Actually, it's better to just add it. If it fails, the user will see it in logs.
           ALTER TABLE product ADD CONSTRAINT PK_product PRIMARY KEY (tr_year, tr_month, ma_hang, mat_hang, nhan_vien);
        END
 
