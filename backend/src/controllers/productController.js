@@ -38,7 +38,29 @@ export const importProducts = async (req, res) => {
         "DELETE FROM product WHERE tr_month = @m AND tr_year = @y AND (source_type = @src OR source_type IS NULL)",
       );
 
-      // 2. Bulk Insert into product table
+      // 2. Deduplicate and Bulk Insert into product table
+      const uniqueProducts = new Map();
+
+      for (const p of pData) {
+        const empName = (p.nhan_vien || "Không rõ").trim();
+        const key = `${p.ma_hang.toLowerCase()}|${p.mat_hang.toLowerCase()}|${empName.toLowerCase()}`;
+        
+        if (!uniqueProducts.has(key)) {
+          uniqueProducts.set(key, { 
+            ...p,
+            nhan_vien: empName,
+            with_vat: p.with_vat || 0,
+            without_vat: p.without_vat || 0,
+            vat: p.vat || 0
+          });
+        } else {
+          const existing = uniqueProducts.get(key);
+          existing.with_vat += (p.with_vat || 0);
+          existing.without_vat += (p.without_vat || 0);
+          existing.vat += (p.vat || 0);
+        }
+      }
+
       const table = new sql.Table("product");
       table.columns.add("tr_year", sql.Int, { nullable: false });
       table.columns.add("tr_month", sql.NVarChar(2), { nullable: false });
@@ -52,19 +74,17 @@ export const importProducts = async (req, res) => {
       table.columns.add("product_group", sql.NVarChar(255), { nullable: true });
 
       let importedCount = 0;
-
-      for (const p of pData) {
+      for (const p of uniqueProducts.values()) {
         importedCount++;
-
         table.rows.add(
           parseInt(year),
           paddedMonth,
           p.ma_hang,
           p.mat_hang,
           p.source_type || source,
-          p.with_vat || 0,
-          p.without_vat || 0,
-          p.vat || 0,
+          p.with_vat,
+          p.without_vat,
+          p.vat,
           p.nhan_vien || "Không rõ",
           p.product_group || "Khác"
         );

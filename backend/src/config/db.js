@@ -45,16 +45,25 @@ async function initDb(db) {
         tr_month NVARCHAR(2) NOT NULL,
         ma_hang NVARCHAR(255) NOT NULL,
         mat_hang NVARCHAR(255) NOT NULL,
+        nhan_vien NVARCHAR(255) NOT NULL DEFAULT 'Không rõ',
         source_type NVARCHAR(50) NOT NULL DEFAULT 'dealer',
         with_vat FLOAT,
         without_vat FLOAT,
         vat FLOAT,
-        nhan_vien NVARCHAR(255),
-        product_group NVARCHAR(255)
+        product_group NVARCHAR(255),
+        PRIMARY KEY (tr_year, tr_month, ma_hang, mat_hang, nhan_vien)
       );
     END
     ELSE
     BEGIN
+       -- Ensure columns are NOT NULL for PK
+       UPDATE product SET nhan_vien = 'Không rõ' WHERE nhan_vien IS NULL;
+       ALTER TABLE product ALTER COLUMN tr_year INT NOT NULL;
+       ALTER TABLE product ALTER COLUMN tr_month NVARCHAR(2) NOT NULL;
+       ALTER TABLE product ALTER COLUMN ma_hang NVARCHAR(255) NOT NULL;
+       ALTER TABLE product ALTER COLUMN mat_hang NVARCHAR(255) NOT NULL;
+       ALTER TABLE product ALTER COLUMN nhan_vien NVARCHAR(255) NOT NULL;
+
        -- Ensure ID column is REMOVED if it exists (at user request)
        IF EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('product') AND name = 'id')
        BEGIN
@@ -64,16 +73,18 @@ async function initDb(db) {
           ALTER TABLE product DROP COLUMN id;
        END
 
+       -- Handle PK creation/update
+       IF NOT EXISTS (SELECT * FROM sys.key_constraints WHERE type = 'PK' AND parent_object_id = OBJECT_ID('product'))
+       BEGIN
+          -- Try to add the PK, but ignore if there are duplicates for now (user should clear data or fix)
+          -- Actually, it's better to just add it. If it fails, the user will see it in logs.
+          ALTER TABLE product ADD CONSTRAINT PK_product PRIMARY KEY (tr_year, tr_month, ma_hang, mat_hang, nhan_vien);
+       END
+
        -- Remove product_line if it exists
        IF EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('product') AND name = 'product_line')
        BEGIN
           ALTER TABLE product DROP COLUMN product_line;
-       END
-
-       -- Add nhan_vien to product
-       IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('product') AND name = 'nhan_vien')
-       BEGIN
-          ALTER TABLE product ADD nhan_vien NVARCHAR(255) NULL;
        END
 
        -- Add product_group to product
