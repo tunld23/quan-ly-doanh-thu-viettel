@@ -39,11 +39,12 @@
           class="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600 dark:text-white"
         >
           <option value="">Tất cả</option>
-          <option value="IMPORT">IMPORT</option>
-          <option value="IMPORT_SALES">IMPORT SALES</option>
-          <option value="CREATE">CREATE ACCOUNT</option>
-          <option value="DELETE">DELETE</option>
-          <option value="SYNC">SYNC</option>
+          <option value="IMPORT">Nhập Sản phẩm</option>
+          <option value="IMPORT_SALES">Nhập Detail (Sales)</option>
+          <option value="CREATE">Tạo Điều chỉnh</option>
+          <option value="DELETE">Xóa Điều chỉnh</option>
+          <option value="CREATE_TARGET">Nhập Chỉ tiêu</option>
+          <option value="DELETE_TARGET">Xóa Chỉ tiêu</option>
         </select>
       </div>
     </div>
@@ -191,14 +192,12 @@ const getActionClass = (action) => {
   switch (action) {
     case "IMPORT":
     case "IMPORT_SALES":
+    case "CREATE_TARGET":
       return "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200";
     case "DELETE":
-    case "DELETE_USER":
     case "DELETE_TARGET":
       return "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200";
-    case "UPDATE_USER":
-      return "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200";
-    case "SYNC":
+    case "CREATE":
       return "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200";
     default:
       return "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300";

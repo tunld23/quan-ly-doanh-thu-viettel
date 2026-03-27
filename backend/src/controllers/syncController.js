@@ -178,8 +178,6 @@ export const syncData = async (req, res) => {
 
     await updateSummaryReport();
 
-    await logActivity(req.user, "SYNC", "all", { salesProcessed: totalSales });
-
     res.json({ message: "Sync Success", stats: { sales: totalSales } });
   } catch (err) {
     console.error("Sync Error:", err);

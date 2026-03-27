@@ -48,13 +48,6 @@ export const createNewUser = async (req, res) => {
 
     await createUser(newUser);
 
-    await logActivity(req.user, "CREATE_USER", "users", {
-      id: newUser.id,
-      username: newUser.username,
-      email: newUser.email,
-      role: newUser.role,
-    });
-
     res
       .status(201)
       .json({ message: "Tạo tài khoản thành công", id: newUser.id });
@@ -79,8 +72,6 @@ export const deleteUserById = async (req, res) => {
     }
 
     await deleteUser(id);
-
-    await logActivity(req.user, "DELETE_USER", "users", { id });
 
     res.status(200).json({ message: "Xóa tài khoản thành công" });
   } catch (error) {
@@ -114,12 +105,6 @@ export const updateUserRolesOrPassword = async (req, res) => {
       const hashedPassword = await bcrypt.hash(password, salt);
       await updateUserPassword(id, hashedPassword);
     }
-
-    await logActivity(req.user, "UPDATE_USER", "users", {
-      id,
-      role,
-      passwordChanged: !!password,
-    });
 
     res.status(200).json({ message: "Cập nhật thành công" });
   } catch (error) {
