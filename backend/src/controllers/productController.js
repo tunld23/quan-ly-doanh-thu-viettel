@@ -153,9 +153,17 @@ export const getProductGroups = async (req, res) => {
 export const getProductYears = async (req, res) => {
   try {
     const db = await getDb();
-    const result = await db
-      .request()
-      .query("SELECT DISTINCT tr_year FROM product ORDER BY tr_year DESC");
+    const query = `
+      SELECT DISTINCT tr_year FROM (
+        SELECT tr_year FROM product
+        UNION
+        SELECT tr_year FROM detail
+        UNION
+        SELECT tr_year FROM targets
+      ) AS Years 
+      ORDER BY tr_year DESC
+    `;
+    const result = await db.request().query(query);
     res.json(result.recordset.map((r) => String(r.tr_year)));
   } catch (err) {
     res.status(500).json({ error: err.message });

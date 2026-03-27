@@ -39,7 +39,9 @@ export function useTargets() {
     let list = allTargets.value;
     list = list.filter((t) => t.type === listTypeFilter.value);
     if (listYearFilter.value !== "all") {
-      list = list.filter((t) => t.tr_year.toString() === listYearFilter.value.toString());
+      list = list.filter(
+        (t) => t.tr_year.toString() === listYearFilter.value.toString(),
+      );
     }
     if (listGroupFilter.value !== "all") {
       list = list.filter((t) => t.product_group === listGroupFilter.value);
@@ -53,9 +55,12 @@ export function useTargets() {
   const fetchYears = async () => {
     try {
       const res = await dashboardService.getYears();
-      years.value = res.data;
-      if (res.data.length > 0 && !form.value.tr_year) {
-        form.value.tr_year = res.data[0];
+      const dbYears = (res.data || []).map(y => parseInt(y, 10));
+      years.value = dbYears;
+      if (dbYears.length > 0) {
+        if (!form.value.tr_year || !dbYears.includes(form.value.tr_year)) {
+          form.value.tr_year = dbYears[0];
+        }
       }
     } catch (err) {
       console.error("Error fetching years:", err);
@@ -69,14 +74,32 @@ export function useTargets() {
       return;
     }
     try {
-      const res = await dashboardService.getProductGroups(form.value.source_type);
+      const res = await dashboardService.getProductGroups(
+        form.value.source_type,
+      );
       let groupsFromDb = res.data;
       const systemDefaults = {
-        am: ["CA","EasyBooks","HDDT","Internet Truyền hình","MySign","Tendoo","vBHXH","vContract","vTracking"],
+        am: [
+          "CA",
+          "EasyBooks",
+          "HDDT",
+          "Internet Truyền hình",
+          "MySign",
+          "Tendoo",
+          "vBHXH",
+          "vContract",
+          "vTracking",
+        ],
         dealer: ["CA", "HDDT", "vBHXH"],
       };
-      const combined = [...new Set([...groupsFromDb, ...(systemDefaults[form.value.source_type] || [])])]
-        .filter(Boolean).sort();
+      const combined = [
+        ...new Set([
+          ...groupsFromDb,
+          ...(systemDefaults[form.value.source_type] || []),
+        ]),
+      ]
+        .filter(Boolean)
+        .sort();
       productGroupsCache[form.value.source_type] = combined;
       productGroups.value = combined;
       updateProductGroupSelection();
@@ -86,7 +109,10 @@ export function useTargets() {
   };
 
   const updateProductGroupSelection = () => {
-    if (productGroups.value.length > 0 && !productGroups.value.includes(form.value.product_group)) {
+    if (
+      productGroups.value.length > 0 &&
+      !productGroups.value.includes(form.value.product_group)
+    ) {
       form.value.product_group = productGroups.value[0];
     }
   };
@@ -114,7 +140,9 @@ export function useTargets() {
       toast.success("Lưu chỉ tiêu thành công");
       await fetchTargets();
     } catch (err) {
-      toast.error("Lỗi khi lưu chỉ tiêu: " + (err.response?.data?.error || err.message));
+      toast.error(
+        "Lỗi khi lưu chỉ tiêu: " + (err.response?.data?.error || err.message),
+      );
     } finally {
       submitting.value = false;
     }
@@ -137,8 +165,16 @@ export function useTargets() {
     }
   };
 
-  watch(() => form.value.source_type, () => fetchProductGroups());
-  watch(() => form.value.type, () => { form.value.amount = 0; });
+  watch(
+    () => form.value.source_type,
+    () => fetchProductGroups(),
+  );
+  watch(
+    () => form.value.type,
+    () => {
+      form.value.amount = 0;
+    },
+  );
 
   onMounted(() => {
     fetchYears();
@@ -147,9 +183,19 @@ export function useTargets() {
   });
 
   return {
-    form, loading, submitting, years, productGroups, allTargets,
-    listTypeFilter, listYearFilter, listGroupFilter,
-    uniqueGroupsInList, filteredTargets,
-    fetchTargets, submitTarget, deleteTarget
+    form,
+    loading,
+    submitting,
+    years,
+    productGroups,
+    allTargets,
+    listTypeFilter,
+    listYearFilter,
+    listGroupFilter,
+    uniqueGroupsInList,
+    filteredTargets,
+    fetchTargets,
+    submitTarget,
+    deleteTarget,
   };
 }
