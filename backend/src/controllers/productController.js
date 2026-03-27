@@ -1,4 +1,4 @@
-import { getDb } from "../config/db.js";
+import { getDb, logActivity } from "../config/db.js";
 import { processProductImportExcel } from "../services/excelProcessor.js";
 import { updateSummaryReport } from "../services/reportService.js";
 import sql from "mssql/msnodesqlv8.js";
@@ -96,6 +96,9 @@ export const importProducts = async (req, res) => {
       }
 
       await transaction.commit();
+
+      // Log the activity
+      await logActivity(req.user, 'IMPORT', 'product', `Imported ${importedCount} records for ${paddedMonth}/${year} (${source})`);
 
       // Trigger summary update to sync dashboard
       await updateSummaryReport();

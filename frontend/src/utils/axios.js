@@ -2,7 +2,7 @@ import axios from "axios";
 
 // Create custom axios instance
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE || "http://192.168.2.11:3000/api",
+  baseURL: import.meta.env.VITE_API_BASE || "/api",
 });
 
 // Request interceptor to attach JWT token

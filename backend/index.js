@@ -12,8 +12,8 @@ async function startServer() {
     await getDb();
     console.log("Database initialized successfully.");
 
-    app.listen(PORT, () => {
-      console.log(`Server running on port ${PORT}`);
+    app.listen(PORT, '0.0.0.0', () => {
+      console.log(`Server running on all interfaces at port ${PORT}`);
     });
   } catch (error) {
     console.error("Failed to start server:", error);

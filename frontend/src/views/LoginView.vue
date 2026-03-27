@@ -2,6 +2,7 @@
 import { ref } from "vue";
 import { useAuthStore } from "../stores/auth";
 import { useRouter } from "vue-router";
+import CryptoJS from "crypto-js";
 
 const authStore = useAuthStore();
 const router = useRouter();
@@ -16,13 +17,22 @@ const handleLogin = async () => {
   errorMsg.value = "";
   loading.value = true;
   try {
+    // Encrypt the password and append a timestamp to prevent replay attacks
+    const secretKey = import.meta.env.VITE_APP_CRYPTO_KEY || "ViettelSecureKey2026";
+    const payloadToEncrypt = `${password.value}|||${Date.now()}`;
+    const encryptedPassword = CryptoJS.AES.encrypt(payloadToEncrypt, secretKey).toString();
+
     await authStore.login({
       username: username.value,
-      password: password.value,
+      password: encryptedPassword,
     });
     router.push("/");
   } catch (err) {
-    if (err.response?.data?.message) {
+    if (err.message === "Network Error") {
+      errorMsg.value = "Lỗi kết nối: Không thể gọi đến máy chủ. Kiểm tra lại địa chỉ IP hoặc Server Backend.";
+    } else if (err.response?.status === 401) {
+      errorMsg.value = "Sai tên đăng nhập hoặc mật khẩu";
+    } else if (err.response?.data?.message) {
       errorMsg.value = err.response.data.message;
     } else {
       errorMsg.value = "Đăng nhập thất bại, vui lòng thử lại";

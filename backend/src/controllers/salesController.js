@@ -1,4 +1,4 @@
-import { getDb } from "../config/db.js";
+import { getDb, logActivity } from "../config/db.js";
 import { processSalesImportExcel } from "../services/excelProcessor.js";
 import { updateSummaryReport } from "../services/reportService.js";
 import sql from "mssql/msnodesqlv8.js";
@@ -191,6 +191,8 @@ export const importSales = async (req, res) => {
       }
 
       await transaction.commit();
+
+      await logActivity(req.user, 'IMPORT_SALES', 'detail', `Imported ${source.toUpperCase()} sales for ${type} (${sData.length} records)`);
 
       await updateSummaryReport();
 

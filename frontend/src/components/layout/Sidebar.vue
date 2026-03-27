@@ -17,11 +17,13 @@ const handleLogout = async () => {
 };
 
 const menuItems = [
-  { path: '/', name: 'Dashboard', icon: 'M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z', roles: ['admin', 'user'] },
-  { path: '/products', name: 'Nhập Sản phẩm', icon: 'M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4', roles: ['admin'] },
-  { path: '/sales-import', name: 'Nhập Detail', icon: 'M9 17v-2a4 4 0 00-4-4H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z', roles: ['admin'] },
-  { path: '/adjustments', name: 'Điều chỉnh Doanh thu', icon: 'M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z', roles: ['admin'] },
-  { path: '/targets', name: 'Nhập Chỉ tiêu', icon: 'M13 10V3L4 14h7v7l9-11h-7z', roles: ['admin'] }
+  { path: '/', name: 'Dashboard', icon: 'M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z', roles: ['admin', 'superadmin', 'user'] },
+  { path: '/products', name: 'Nhập Sản phẩm', icon: 'M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4', roles: ['admin', 'superadmin'] },
+  { path: '/sales-import', name: 'Nhập Detail', icon: 'M9 17v-2a4 4 0 00-4-4H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z', roles: ['admin', 'superadmin'] },
+  { path: '/adjustments', name: 'Điều chỉnh Doanh thu', icon: 'M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z', roles: ['admin', 'superadmin'] },
+  { path: '/targets', name: 'Nhập Chỉ tiêu', icon: 'M13 10V3L4 14h7v7l9-11h-7z', roles: ['admin', 'superadmin'] },
+  { path: '/users', name: 'Quản lý Account', icon: 'M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z', roles: ['superadmin'] },
+  { path: '/audit-logs', name: 'Lịch sử Hoạt động', icon: 'M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z', roles: ['superadmin'] }
 ];
 
 const filteredMenuItems = computed(() => {

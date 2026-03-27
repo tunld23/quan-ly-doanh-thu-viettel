@@ -1,4 +1,4 @@
-import { getDb } from "../config/db.js";
+import { getDb, logActivity } from "../config/db.js";
 import { updateSummaryReport } from "./reportService.js";
 
 /**
@@ -37,11 +37,14 @@ export const adjustmentService = {
   /**
    * Remove adjustment and refresh report
    */
-  async delete(createdAt) {
+  async delete(createdAt, user) {
     const db = await getDb();
     const request = db.request();
     request.input("createdAt", createdAt);
     await request.query("DELETE FROM adjustments WHERE created_at = @createdAt");
+    
+    await logActivity(user, 'DELETE', 'adjustments', { createdAt });
+    
     await updateSummaryReport();
     return { success: true };
   },
@@ -92,7 +95,7 @@ export const adjustmentService = {
   /**
    * Create a new adjustment with limit validation
    */
-  async create(data) {
+  async create(data, user) {
     const db = await getDb();
     const month = String(data.tr_month).padStart(2, "0");
 
@@ -155,6 +158,8 @@ export const adjustmentService = {
       INSERT INTO adjustments (tr_year, tr_month, nhan_vien, product_group, source_type, adj_quantity, adj_amount, note)
       VALUES (@year, @month, @user, @group, @source_type, @qty, @amt, @note)
     `);
+
+    await logActivity(user, 'CREATE', 'adjustments', data);
 
     await updateSummaryReport();
     return { success: true };

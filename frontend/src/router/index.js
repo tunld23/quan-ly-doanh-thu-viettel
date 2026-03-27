@@ -5,6 +5,8 @@ import SalesImport from "../views/SalesImport.vue";
 import SalesAdjustment from "../views/SalesAdjustment.vue";
 import TargetConfig from "../views/TargetConfig.vue";
 import LoginView from "../views/LoginView.vue";
+import UserManagement from "../views/UserManagement.vue";
+import AuditLogs from "../views/AuditLogs.vue";
 import { useAuthStore } from "../stores/auth";
 
 const router = createRouter({
@@ -26,25 +28,37 @@ const router = createRouter({
       path: "/products",
       name: "products",
       component: ProductImport,
-      meta: { requiresAuth: true, roles: ['admin'] }
+      meta: { requiresAuth: true, roles: ['admin', 'superadmin'] }
     },
     {
       path: "/sales-import",
       name: "sales-import",
       component: SalesImport,
-      meta: { requiresAuth: true, roles: ['admin'] } 
+      meta: { requiresAuth: true, roles: ['admin', 'superadmin'] } 
     },
     {
       path: "/adjustments",
       name: "adjustments",
       component: SalesAdjustment,
-      meta: { requiresAuth: true, roles: ['admin'] } 
+      meta: { requiresAuth: true, roles: ['admin', 'superadmin'] } 
     },
     {
       path: "/targets",
       name: "targets",
       component: TargetConfig,
-      meta: { requiresAuth: true, roles: ['admin'] } 
+      meta: { requiresAuth: true, roles: ['admin', 'superadmin'] } 
+    },
+    {
+      path: "/users",
+      name: "users",
+      component: UserManagement,
+      meta: { requiresAuth: true, roles: ['superadmin'] } 
+    },
+    {
+      path: "/audit-logs",
+      name: "audit-logs",
+      component: AuditLogs,
+      meta: { requiresAuth: true, roles: ['superadmin'] } 
     },
   ],
 });

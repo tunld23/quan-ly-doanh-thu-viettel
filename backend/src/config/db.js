@@ -285,6 +285,25 @@ async function initDb(db) {
         refresh_token NVARCHAR(MAX)
       );
     END
+
+    IF OBJECT_ID('audit_logs', 'U') IS NULL
+    BEGIN
+      CREATE TABLE audit_logs (
+        id INT IDENTITY(1,1) PRIMARY KEY,
+        user_id NVARCHAR(255),
+        username NVARCHAR(255),
+        action NVARCHAR(255),
+        table_name NVARCHAR(255),
+        details NVARCHAR(MAX),
+        timestamp DATETIME DEFAULT GETDATE()
+      );
+    END
+    
+    -- Ensure the original admin account gets superadmin role correctly
+    IF OBJECT_ID('users', 'U') IS NOT NULL
+    BEGIN
+       UPDATE users SET role = 'superadmin' WHERE username = 'admin';
+    END
   `;
   try {
     await db.request().query(schema);
@@ -363,5 +382,37 @@ export async function clearData(tableName) {
     await db.request().query(`DELETE FROM ${tableName}`);
   } catch (err) {
     console.error(`Error clearing ${tableName}:`, err.message);
+  }
+}
+
+/**
+ * Log a user action to the audit_logs table
+ * @param {Object} user - The user object (from req.user)
+ * @param {string} action - The action performed (e.g., 'INSERT', 'UPDATE', 'DELETE', 'IMPORT')
+ * @param {string} tableName - The table being affected
+ * @param {Object|string} details - Additional information about the action
+ */
+export async function logActivity(user, action, tableName, details = null) {
+  try {
+    const pool = await getDb();
+    const request = pool.request();
+    
+    // Convert details to JSON string if it's an object
+    const detailsStr = details && typeof details === 'object' 
+      ? JSON.stringify(details) 
+      : (details || '');
+
+    request.input('userId', sql.NVarChar, user?.id || 'system');
+    request.input('username', sql.NVarChar, user?.username || 'system');
+    request.input('action', sql.NVarChar, action);
+    request.input('tableName', sql.NVarChar, tableName);
+    request.input('details', sql.NVarChar, detailsStr);
+    
+    await request.query(`
+      INSERT INTO audit_logs (user_id, username, action, table_name, details)
+      VALUES (@userId, @username, @action, @tableName, @details)
+    `);
+  } catch (err) {
+    console.error("Audit Logging Error:", err.message);
   }
 }

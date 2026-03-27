@@ -31,4 +31,12 @@ export const importService = {
   })
 };
 
+export const userService = {
+  getUsers: () => api.get('/users'),
+  createUser: (data) => api.post('/users', data),
+  updateUser: (id, data) => api.put(`/users/${id}`, data),
+  deleteUser: (id) => api.delete(`/users/${id}`),
+  getAuditLogs: () => api.get('/users/audit')
+};
+
 export default api;

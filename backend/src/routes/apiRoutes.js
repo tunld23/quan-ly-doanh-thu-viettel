@@ -58,7 +58,7 @@ router.post("/sales/import", upload.single("file"), importSales);
 
 // Auth & Profiles
 router.use("/auth", authRoutes);
-router.use("/user", userRoutes);
+router.use("/users", userRoutes);
 router.use("/admin", adminRoutes);
 
 export default router;

@@ -11,7 +11,7 @@ export const getAdjustments = async (req, res) => {
 
 export const createAdjustment = async (req, res) => {
   try {
-    const result = await adjustmentService.create(req.body);
+    const result = await adjustmentService.create(req.body, req.user);
     res.json(result);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -29,7 +29,7 @@ export const getAvailableStaff = async (req, res) => {
 
 export const deleteAdjustment = async (req, res) => {
   try {
-    const result = await adjustmentService.delete(req.params.id);
+    const result = await adjustmentService.delete(req.params.id, req.user);
     res.json(result);
   } catch (err) {
     res.status(500).json({ error: err.message });

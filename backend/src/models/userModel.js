@@ -60,3 +60,34 @@ export const removeRefreshToken = async (token) => {
     .input('token', sql.NVarChar, token)
     .query('UPDATE users SET refresh_token = NULL WHERE refresh_token = @token');
 };
+
+// --- USER MANAGEMENT METHODS ---
+export const getAllUsers = async () => {
+  const db = await getDb();
+  // Don't return passwords
+  const result = await db.request().query('SELECT id, username, email, role FROM users');
+  return result.recordset;
+};
+
+export const deleteUser = async (id) => {
+  const db = await getDb();
+  await db.request()
+    .input('id', sql.NVarChar, id)
+    .query('DELETE FROM users WHERE id = @id');
+};
+
+export const updateUserRole = async (id, role) => {
+  const db = await getDb();
+  await db.request()
+    .input('id', sql.NVarChar, id)
+    .input('role', sql.NVarChar, role)
+    .query('UPDATE users SET role = @role WHERE id = @id');
+};
+
+export const updateUserPassword = async (id, hashedPassword) => {
+  const db = await getDb();
+  await db.request()
+    .input('id', sql.NVarChar, id)
+    .input('password', sql.NVarChar, hashedPassword)
+    .query('UPDATE users SET password = @password WHERE id = @id');
+};

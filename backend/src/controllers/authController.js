@@ -1,5 +1,6 @@
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
+import CryptoJS from "crypto-js";
 import {
   findUserByUsernameOrEmail,
   findUserByUsername,
@@ -40,14 +41,42 @@ export const register = async (req, res) => {
 
 export const login = async (req, res) => {
   try {
-    const { username, password } = req.body;
+    const { username, password: encryptedPassword } = req.body;
+
+    const secretKey = process.env.CRYPTO_SECRET_KEY || "ViettelSecureKey2026";
+    let realPassword = "";
+
+    try {
+      const bytes = CryptoJS.AES.decrypt(encryptedPassword, secretKey);
+      const decryptedStr = bytes.toString(CryptoJS.enc.Utf8);
+      
+      if (!decryptedStr) {
+        return res.status(401).json({ message: "Invalid payload signature" });
+      }
+
+      const parts = decryptedStr.split("|||");
+      if (parts.length !== 2) {
+        return res.status(401).json({ message: "Invalid payload structure" });
+      }
+
+      realPassword = parts[0];
+      const timestamp = parseInt(parts[1], 10);
+
+      // Check for replay attacks (Reject requests older than 2 minutes)
+      if (Date.now() - timestamp > 120000) {
+        return res.status(401).json({ message: "Request expired" });
+      }
+    } catch (err) {
+      console.error("Decryption Error:", err);
+      return res.status(401).json({ message: "Decryption failed or manipulation detected" });
+    }
 
     const user = await findUserByUsername(username);
     if (!user) {
       return res.status(401).json({ message: "Invalid username or password" });
     }
 
-    const isMatch = await bcrypt.compare(password, user.password);
+    const isMatch = await bcrypt.compare(realPassword, user.password);
     if (!isMatch) {
       return res.status(401).json({ message: "Invalid username or password" });
     }

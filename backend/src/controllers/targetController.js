@@ -1,4 +1,4 @@
-import { getDb } from "../config/db.js";
+import { getDb, logActivity } from "../config/db.js";
 import sql from "mssql/msnodesqlv8.js";
 
 export const getTargets = async (req, res) => {
@@ -58,6 +58,8 @@ export const createTarget = async (req, res) => {
       VALUES (@tr_year, @tr_month, @source_type, @product_group, @type, @amount)
     `);
 
+    await logActivity(req.user, 'CREATE_TARGET', 'targets', req.body);
+
     res.status(201).json({ message: "Đã lưu chỉ tiêu thành công (Ghi đè nếu đã tồn tại)" });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -84,6 +86,8 @@ export const deleteTarget = async (req, res) => {
       AND product_group = @product_group 
       AND type = @type
     `);
+    
+    await logActivity(req.user, 'DELETE_TARGET', 'targets', req.query);
     
     res.json({ message: "Xóa chỉ tiêu thành công" });
   } catch (err) {
