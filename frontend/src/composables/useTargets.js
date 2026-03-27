@@ -77,7 +77,12 @@ export function useTargets() {
       const res = await dashboardService.getProductGroups(
         form.value.source_type,
       );
-      let groupsFromDb = res.data;
+      // Chuẩn hóa tên nhóm sản phẩm để tránh trùng lặp
+      let groupsFromDb = res.data.map(g => {
+        if (g === 'BHXH') return 'vBHXH';
+        if (g.toLowerCase() === 'internet truyền hình') return 'Internet Truyền hình';
+        return g;
+      });
       const systemDefaults = {
         am: [
           "CA",
@@ -121,7 +126,11 @@ export function useTargets() {
     loading.value = true;
     try {
       const res = await targetService.getTargets();
-      allTargets.value = res.data;
+      allTargets.value = res.data.map(t => {
+        if (t.product_group === 'BHXH') t.product_group = 'vBHXH';
+        if (t.product_group && t.product_group.toLowerCase() === 'internet truyền hình') t.product_group = 'Internet Truyền hình';
+        return t;
+      });
     } catch (err) {
       console.error("Error fetching targets:", err);
     } finally {
