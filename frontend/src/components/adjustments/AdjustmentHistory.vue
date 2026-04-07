@@ -26,7 +26,7 @@ const formatDate = (dateStr) => {
         </button>
         
         <div class="flex justify-between items-start mb-1">
-          <span class="text-[10px] font-bold text-gray-500">Tháng {{ adj.tr_month }}/{{ adj.tr_year }}</span>
+          <span class="text-[10px] font-bold text-gray-500">Ngày {{ adj.tr_day }}/{{ adj.tr_month }}/{{ adj.tr_year }}</span>
           <span class="text-[10px] text-gray-400">{{ formatDate(adj.created_at) }}</span>
         </div>
         <div class="flex items-center justify-between mb-1">

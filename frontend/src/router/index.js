@@ -7,10 +7,14 @@ import TargetConfig from "../views/TargetConfig.vue";
 import LoginView from "../views/LoginView.vue";
 import UserManagement from "../views/UserManagement.vue";
 import AuditLogs from "../views/AuditLogs.vue";
+import SmePerformance from "../views/SmePerformance.vue";
 import { useAuthStore } from "../stores/auth";
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
+  scrollBehavior() {
+    return { top: 0 };
+  },
   routes: [
     {
       path: "/login",
@@ -23,6 +27,13 @@ const router = createRouter({
       name: "dashboard",
       component: Dashboard,
       meta: { requiresAuth: true }
+    },
+
+    {
+      path: "/sme-kpi",
+      name: "sme-kpi",
+      component: SmePerformance,
+      meta: { requiresAuth: true, roles: ['admin', 'superadmin', 'user'] }
     },
     {
       path: "/products",

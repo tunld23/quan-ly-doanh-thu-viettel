@@ -8,7 +8,7 @@
  * Filter a data array by time-based filters
  */
 export function filterDashboardData(data, filters) {
-  const { year, month, quarter, mode } = filters;
+  const { year, month, day, quarter, mode } = filters;
   const targetYears = year && String(year).includes(",") 
     ? year.split(",").map(y => String(y.trim())) 
     : (year ? [String(year)] : []);
@@ -17,8 +17,18 @@ export function filterDashboardData(data, filters) {
     // Year filter
     if (targetYears.length > 0 && !targetYears.includes(String(item.nam))) return false;
     
-    // Month filter
-    if (mode === "month" && month && parseInt(item.thang) !== parseInt(month)) return false;
+    // Month & Day filter (MTD logic)
+    if (month && day) {
+        const itemMonth = parseInt(item.thang);
+        const itemDay = parseInt(item.ngay || 1);
+        const targetMonth = parseInt(month);
+        const targetDay = parseInt(day);
+        
+        if (itemMonth > targetMonth) return false;
+        if (itemMonth === targetMonth && itemDay > targetDay) return false;
+    } else if (mode === "month" && month && parseInt(item.thang) !== parseInt(month)) {
+        return false;
+    }
     
     // Quarter filter
     if (mode === "quarter" && quarter) {

@@ -6,24 +6,25 @@ import {
   getStatus,
   getSalesData,
   getStaffNames,
-  refreshSummary
+  refreshSummary,
+  getPerformanceComparisons
 } from "../controllers/dashboardController.js";
-import { 
-  importProducts, 
+import {
+  importProducts,
   getProductGroups,
-  getProductYears
+  getProductYears,
 } from "../controllers/productController.js";
 import { importSales } from "../controllers/salesController.js";
-import { 
-  getAdjustments, 
-  createAdjustment, 
+import {
+  getAdjustments,
+  createAdjustment,
   getAvailableStaff,
-  deleteAdjustment 
+  deleteAdjustment,
 } from "../controllers/adjustmentController.js";
 import {
   getTargets,
   createTarget,
-  deleteTarget
+  deleteTarget,
 } from "../controllers/targetController.js";
 import authRoutes from "./authRoutes.js";
 import userRoutes from "./userRoutes.js";
@@ -34,6 +35,7 @@ const upload = multer({ storage: multer.memoryStorage() });
 
 router.post("/init", syncData);
 router.get("/dashboard", getDashboardData);
+router.get("/dashboard/performance-comparison", getPerformanceComparisons);
 router.post("/dashboard/refresh", refreshSummary);
 router.get("/sales", getSalesData);
 router.get("/status", getStatus);

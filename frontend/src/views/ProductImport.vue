@@ -11,6 +11,7 @@ const years = Array.from({ length: 11 }, (_, i) => currentYear - 5 + i);
 
 const selectedYear = ref(currentYear);
 const selectedMonth = ref(new Date().getMonth() + 1);
+const selectedDay = ref(new Date().getDate());
 const selectedSource = ref("dealer");
 const file = ref(null);
 const importing = ref(false);
@@ -23,6 +24,7 @@ const handleImport = async () => {
   formData.append("file", file.value);
   formData.append("month", selectedMonth.value);
   formData.append("year", selectedYear.value);
+  formData.append("day", selectedDay.value);
   formData.append("source", selectedSource.value);
 
   try {
@@ -46,14 +48,14 @@ const handleImport = async () => {
       </h1>
 
       <div class="bg-white rounded-xl shadow-lg p-8 border border-gray-100">
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
           <div class="space-y-2">
             <label class="flex items-center text-xs font-black uppercase tracking-wider text-gray-500 mb-3 ml-1">
               <svg class="w-4 h-4 mr-2 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
-              1. Chọn Năm
+              1. Chọn Ngày
             </label>
-            <select v-model="selectedYear" class="input-modern">
-               <option v-for="y in years" :key="y" :value="y">Năm {{ y }}</option>
+            <select v-model="selectedDay" class="input-modern">
+              <option v-for="d in 31" :key="d" :value="d">Ngày {{ d }}</option>
             </select>
           </div>
 
@@ -64,6 +66,16 @@ const handleImport = async () => {
             </label>
             <select v-model="selectedMonth" class="input-modern">
               <option v-for="m in 12" :key="m" :value="m">Tháng {{ m }}</option>
+            </select>
+          </div>
+
+          <div class="space-y-2">
+            <label class="flex items-center text-xs font-black uppercase tracking-wider text-gray-500 mb-3 ml-1">
+              <svg class="w-4 h-4 mr-2 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+              3. Chọn Năm
+            </label>
+            <select v-model="selectedYear" class="input-modern">
+               <option v-for="y in years" :key="y" :value="y">Năm {{ y }}</option>
             </select>
           </div>
         </div>
@@ -102,8 +114,9 @@ const handleImport = async () => {
                <p class="font-black uppercase tracking-widest mb-2">Quy ước nạp Sản phẩm:</p>
                <ul class="space-y-1 ml-1">
                  <li class="flex items-center gap-1.5"><div class="w-1 h-1 bg-blue-400 rounded-full"></div> <b>Mã hàng:</b> Cột B | <b>Mặt hàng:</b> Cột C</li>
-                 <li class="flex items-center gap-1.5"><div class="w-1 h-1 bg-blue-400 rounded-full"></div> <b>Tiền VAT:</b> Cột K, L, M | <b>Số lượng:</b> Cột E</li>
-                 <li class="flex items-center gap-1.5"><div class="w-1 h-1 bg-blue-400 rounded-full"></div> <b>Dòng SP:</b> Cột <b>{{selectedSource === 'dealer' ? 'AS' : 'AR'}}</b></li>
+                 <li class="flex items-center gap-1.5"><div class="w-1 h-1 bg-blue-400 rounded-full"></div> <b>Doanh thu:</b> Cột K, L, M | <b>Nhân viên:</b> Cột AB</li>
+                 <li class="flex items-center gap-1.5"><div class="w-1 h-1 bg-blue-400 rounded-full"></div> <b>Trạng thái (Hủy):</b> Cột AD</li>
+                 <li class="flex items-center gap-1.5"><div class="w-1 h-1 bg-blue-400 rounded-full"></div> <b>Product Hierarchy:</b> Cột <b>AP</b></li>
                </ul>
              </div>
            </div>

@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, onMounted } from "vue";
+import { ref, computed, onMounted, watch, nextTick } from "vue";
 import { useRoute } from "vue-router";
 import Sidebar from "./components/layout/Sidebar.vue";
 import Header from "./components/layout/Header.vue";
@@ -9,6 +9,16 @@ import { useAuthStore } from "./stores/auth";
 const route = useRoute();
 const authStore = useAuthStore();
 const isSidebarOpen = ref(true);
+const mainContent = ref(null);
+
+// Tự động cuộn lên đầu khi chuyển trang
+watch(route, () => {
+  nextTick(() => {
+    if (mainContent.value) {
+      mainContent.value.scrollTop = 0;
+    }
+  });
+});
 
 onMounted(() => {
   authStore.tryAutoLogin();
@@ -43,7 +53,7 @@ const showLayout = computed(() => {
         />
 
         <!-- Main scrollable content -->
-        <main class="flex-1 overflow-x-hidden p-0">
+        <main ref="mainContent" class="flex-1 overflow-x-hidden overflow-y-auto p-0">
           <router-view />
         </main>
       </div>

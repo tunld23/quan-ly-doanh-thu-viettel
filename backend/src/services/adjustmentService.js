@@ -21,11 +21,13 @@ export const adjustmentService = {
         FROM adjustments adj
         LEFT JOIN summary_report sr ON adj.tr_year = sr.tr_year 
             AND adj.tr_month = sr.tr_month 
+            AND adj.tr_day = sr.tr_day
             AND adj.nhan_vien = sr.nhan_vien 
             AND adj.product_group = sr.product_group
             AND adj.source_type = sr.source_type
         LEFT JOIN staff_service_count sc ON adj.tr_year = sc.tr_year 
             AND adj.tr_month = sc.tr_month 
+            AND adj.tr_day = sc.tr_day
             AND adj.nhan_vien = sc.nhan_vien 
             AND adj.product_group = sc.product_group
             AND adj.source_type = sc.source_type
@@ -58,6 +60,7 @@ export const adjustmentService = {
 
     request.input("year", filters.tr_year);
     request.input("month", String(filters.tr_month).padStart(2, "0"));
+    request.input("day", String(filters.tr_day || "01").padStart(2, "0"));
     request.input("group", filters.product_group);
     request.input("source_type", filters.source_type);
 
@@ -70,25 +73,46 @@ export const adjustmentService = {
         -- Revenue base from summary_report (already includes revenue adjustments)
         SELECT nhan_vien, total_amount as revenue, 0 as quantity 
         FROM summary_report
-        WHERE tr_year = @year AND tr_month = @month AND product_group = @group AND source_type = @source_type
+        WHERE tr_year = @year AND tr_month = @month AND tr_day = @day AND product_group = @group AND source_type = @source_type
         
         UNION ALL
         
         -- Quantity base from staff_service_count
         SELECT nhan_vien, 0 as revenue, service_count as quantity 
         FROM staff_service_count
-        WHERE tr_year = @year AND tr_month = @month AND product_group = @group AND source_type = @source_type
+        WHERE tr_year = @year AND tr_month = @month AND tr_day = @day AND product_group = @group AND source_type = @source_type
         
         UNION ALL
         
         -- Existing quantity adjustments
         SELECT nhan_vien, 0 as revenue, adj_quantity as quantity 
         FROM adjustments
-        WHERE tr_year = @year AND tr_month = @month AND product_group = @group AND source_type = @source_type
+        WHERE tr_year = @year AND tr_month = @month AND tr_day = @day AND product_group = @group AND source_type = @source_type
       ) t
       GROUP BY t.nhan_vien
       ORDER BY t.nhan_vien ASC
     `);
+
+    // If no staff found for this specific group, fallback to all active staff in the system for this month/year
+    if (result.recordset.length === 0) {
+      const fallbackReq = db.request();
+      fallbackReq.input("year", filters.tr_year);
+      fallbackReq.input("month", String(filters.tr_month).padStart(2, "0"));
+      
+      const fallbackRes = await fallbackReq.query(`
+        SELECT DISTINCT nhan_vien, 0 as current_revenue, 0 as current_quantity
+        FROM (
+          SELECT nhan_vien FROM summary_report WHERE tr_year = @year AND tr_month = @month
+          UNION
+          SELECT nhan_vien FROM staff_service_count WHERE tr_year = @year AND tr_month = @month
+          UNION
+          SELECT nhan_vien FROM detail WHERE tr_year = @year AND tr_month = @month
+        ) AllStaff
+        ORDER BY nhan_vien ASC
+      `);
+      return fallbackRes.recordset;
+    }
+
     return result.recordset;
   },
 
@@ -147,6 +171,7 @@ export const adjustmentService = {
     const request = db.request();
     request.input("year", data.tr_year);
     request.input("month", month);
+    request.input("day", String(data.tr_day || "01").padStart(2, "0"));
     request.input("user", data.nhan_vien);
     request.input("group", data.product_group || "Điều chỉnh");
     request.input("source_type", data.source_type || "manual");
@@ -155,8 +180,8 @@ export const adjustmentService = {
     request.input("note", data.note || "");
 
     await request.query(`
-      INSERT INTO adjustments (tr_year, tr_month, nhan_vien, product_group, source_type, adj_quantity, adj_amount, note)
-      VALUES (@year, @month, @user, @group, @source_type, @qty, @amt, @note)
+      INSERT INTO adjustments (tr_year, tr_month, tr_day, nhan_vien, product_group, source_type, adj_quantity, adj_amount, note)
+      VALUES (@year, @month, @day, @user, @group, @source_type, @qty, @amt, @note)
     `);
 
     await logActivity(user, 'CREATE', 'adjustments', data);

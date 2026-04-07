@@ -107,6 +107,7 @@ export const importSales = async (req, res) => {
       const table = new sql.Table("detail");
       table.columns.add("tr_year", sql.Int, { nullable: false });
       table.columns.add("tr_month", sql.NVarChar(2), { nullable: false });
+      table.columns.add("tr_day", sql.NVarChar(2), { nullable: false });
       table.columns.add("nhan_vien", sql.NVarChar(255), { nullable: false });
       table.columns.add("ma_hang", sql.NVarChar(255), { nullable: false });
       table.columns.add("mat_hang", sql.NVarChar(255), { nullable: false });
@@ -122,6 +123,7 @@ export const importSales = async (req, res) => {
         table.rows.add(
           parseInt(s.nam || fallbackYear), 
           s.thang || fallbackMonth, 
+          s.ngay || "01",
           s.nhan_vien,
           s.ma_hang,
           s.mat_hang,
@@ -145,16 +147,19 @@ export const importSales = async (req, res) => {
            for (const s of sData) {
               const y = parseInt(s.nam || fallbackYear);
               const m = s.thang || fallbackMonth;
-              const key = `${y}|${m}|${s.ma_hang}|${s.mat_hang}|${source}`;
+              const d = s.ngay || "01";
+              const key = `${y}|${m}|${d}|${s.ma_hang}|${s.mat_hang}|${source}`;
               if (!seenProducts.has(key) && s.price !== undefined) {
                  seenProducts.add(key);
                  uniqueProducts.push({
                     tr_year: y,
                     tr_month: m,
+                    tr_day: d,
                     ma_hang: s.ma_hang,
                     mat_hang: s.mat_hang,
                     without_vat: s.price,
-                    source_type: source
+                    source_type: source,
+                    nhan_vien: "Tendoo" // Or s.nhan_vien if desired
                  });
               }
            }
@@ -168,21 +173,23 @@ export const importSales = async (req, res) => {
                 const pReq = new sql.Request(transaction);
                 pReq.input("y", sql.Int, p.tr_year);
                 pReq.input("m", sql.NVarChar, p.tr_month);
+                pReq.input("d", sql.NVarChar, p.tr_day);
                 pReq.input("ma", sql.NVarChar, p.ma_hang);
                 pReq.input("mat", sql.NVarChar, p.mat_hang);
                 pReq.input("price", sql.Float, p.without_vat);
                 pReq.input("src", sql.NVarChar, p.source_type);
+                pReq.input("emp", sql.NVarChar, p.nhan_vien);
                 
                 await pReq.query(`
-                  IF NOT EXISTS (SELECT 1 FROM product WHERE tr_year = @y AND tr_month = @m AND ma_hang = @ma AND mat_hang = @mat AND source_type = @src)
+                  IF NOT EXISTS (SELECT 1 FROM product WHERE tr_year = @y AND tr_month = @m AND tr_day = @d AND ma_hang = @ma AND mat_hang = @mat AND source_type = @src)
                   BEGIN
-                    INSERT INTO product (tr_year, tr_month, ma_hang, mat_hang, without_vat, with_vat, vat, source_type)
-                    VALUES (@y, @m, @ma, @mat, @price, @price, 0, @src)
+                    INSERT INTO product (tr_year, tr_month, tr_day, ma_hang, mat_hang, nhan_vien, without_vat, with_vat, vat, source_type, product_group)
+                    VALUES (@y, @m, @d, @ma, @mat, @emp, @price, @price, 0, @src, 'Tendoo')
                   END
                   ELSE
                   BEGIN
-                    UPDATE product SET without_vat = @price, with_vat = @price, vat = 0
-                    WHERE tr_year = @y AND tr_month = @m AND ma_hang = @ma AND mat_hang = @mat AND source_type = @src
+                    UPDATE product SET without_vat = @price, with_vat = @price, vat = 0, nhan_vien = @emp
+                    WHERE tr_year = @y AND tr_month = @m AND tr_day = @d AND ma_hang = @ma AND mat_hang = @mat AND source_type = @src
                   END
                 `);
               }

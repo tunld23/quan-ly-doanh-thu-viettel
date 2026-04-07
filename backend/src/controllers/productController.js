@@ -9,14 +9,18 @@ export const importProducts = async (req, res) => {
       return res.status(400).json({ error: "No file uploaded" });
     }
 
-    const { month, year, source = "dealer" } = req.body;
+    const { month, year, day, source = "dealer" } = req.body;
     if (!month || !year) {
       return res.status(400).json({ error: "Month and Year are required" });
     }
 
     const paddedMonth = String(month).padStart(2, "0");
+    const paddedDay = day ? String(day).padStart(2, "0") : "01";
     const buffer = req.file.buffer;
-    const { data: pData, summary } = await processProductImportExcel(buffer, source);
+    const { data: pData, summary } = await processProductImportExcel(
+      buffer,
+      source,
+    );
 
     if (pData.length === 0) {
       return res
@@ -29,13 +33,14 @@ export const importProducts = async (req, res) => {
     await transaction.begin();
 
     try {
-      // 1. Delete old products for the month/year AND current source
+      // 1. Delete old products for the specific day/month/year AND current source
       const deleteRequest = new sql.Request(transaction);
+      deleteRequest.input("d", sql.NVarChar, paddedDay);
       deleteRequest.input("m", sql.NVarChar, paddedMonth);
       deleteRequest.input("y", sql.Int, parseInt(year));
       deleteRequest.input("src", sql.NVarChar, source);
       await deleteRequest.query(
-        "DELETE FROM product WHERE tr_month = @m AND tr_year = @y AND (source_type = @src OR source_type IS NULL)",
+        "DELETE FROM product WHERE tr_day = @d AND tr_month = @m AND tr_year = @y AND (source_type = @src OR source_type IS NULL)",
       );
 
       // 2. Deduplicate and Bulk Insert into product table
@@ -43,27 +48,28 @@ export const importProducts = async (req, res) => {
 
       for (const p of pData) {
         const empName = (p.nhan_vien || "Không rõ").trim();
-        const key = `${p.ma_hang.toLowerCase()}|${p.mat_hang.toLowerCase()}|${empName.toLowerCase()}`;
-        
+        const key = `${paddedDay}|${p.ma_hang.toLowerCase()}|${p.mat_hang.toLowerCase()}|${empName.toLowerCase()}`;
+
         if (!uniqueProducts.has(key)) {
-          uniqueProducts.set(key, { 
+          uniqueProducts.set(key, {
             ...p,
             nhan_vien: empName,
             with_vat: p.with_vat || 0,
             without_vat: p.without_vat || 0,
-            vat: p.vat || 0
+            vat: p.vat || 0,
           });
         } else {
           const existing = uniqueProducts.get(key);
-          existing.with_vat += (p.with_vat || 0);
-          existing.without_vat += (p.without_vat || 0);
-          existing.vat += (p.vat || 0);
+          existing.with_vat += p.with_vat || 0;
+          existing.without_vat += p.without_vat || 0;
+          existing.vat += p.vat || 0;
         }
       }
 
       const table = new sql.Table("product");
       table.columns.add("tr_year", sql.Int, { nullable: false });
       table.columns.add("tr_month", sql.NVarChar(2), { nullable: false });
+      table.columns.add("tr_day", sql.NVarChar(2), { nullable: false });
       table.columns.add("ma_hang", sql.NVarChar(255), { nullable: false });
       table.columns.add("mat_hang", sql.NVarChar(255), { nullable: false });
       table.columns.add("source_type", sql.NVarChar(50), { nullable: true });
@@ -79,6 +85,7 @@ export const importProducts = async (req, res) => {
         table.rows.add(
           parseInt(year),
           paddedMonth,
+          paddedDay,
           p.ma_hang,
           p.mat_hang,
           p.source_type || source,
@@ -86,7 +93,7 @@ export const importProducts = async (req, res) => {
           p.without_vat,
           p.vat,
           p.nhan_vien || "Không rõ",
-          p.product_group || "Khác"
+          p.product_group || "Khác",
         );
       }
 
@@ -98,17 +105,22 @@ export const importProducts = async (req, res) => {
       await transaction.commit();
 
       // Log the activity
-      await logActivity(req.user, 'IMPORT', 'product', `Imported ${importedCount} records for ${paddedMonth}/${year} (${source})`);
+      await logActivity(
+        req.user,
+        "IMPORT",
+        "product",
+        `Imported ${importedCount} records for ${paddedDay}/${paddedMonth}/${year} (${source})`,
+      );
 
       // Trigger summary update to sync dashboard
       await updateSummaryReport();
 
       res.json({
-        message: `Successfully imported ${importedCount} ${source.toUpperCase()} products for ${paddedMonth}/${year}`,
+        message: `Successfully imported ${importedCount} ${source.toUpperCase()} products for ${paddedDay}/${paddedMonth}/${year}`,
         summary: {
           ...summary,
-          imported: importedCount
-        }
+          imported: importedCount,
+        },
       });
     } catch (err) {
       if (transaction) {
@@ -122,12 +134,10 @@ export const importProducts = async (req, res) => {
     }
   } catch (err) {
     console.error("General Error:", err);
-    res
-      .status(500)
-      .json({
-        error: "Import failed before database operation",
-        details: err.message,
-      });
+    res.status(500).json({
+      error: "Import failed before database operation",
+      details: err.message,
+    });
   }
 };
 
@@ -136,15 +146,19 @@ export const getProductGroups = async (req, res) => {
     const { source } = req.query;
     const db = await getDb();
     const request = db.request();
-    
-    let query = "SELECT DISTINCT product_group FROM summary_report WHERE product_group IS NOT NULL";
-    if (source && source !== "all") {
-      query += " AND source_type = @source";
-      request.input("source", source);
-    }
-    
+
+    let query =
+      "SELECT DISTINCT product_group FROM (SELECT product_group FROM product_type UNION SELECT product_group FROM summary_report) t WHERE product_group IS NOT NULL";
+
     const result = await request.query(query);
-    res.json(result.recordset.map((r) => r.product_group).filter(Boolean));
+    let groups = result.recordset.map((r) => r.product_group).filter(Boolean);
+
+    // Đảm bảo luôn có SIP TRUNK nếu là kênh dealer hoặc cho phép tất cả các kênh
+    if (!groups.includes("SIP TRUNK")) {
+      groups.push("SIP TRUNK");
+    }
+
+    res.json(groups.sort());
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

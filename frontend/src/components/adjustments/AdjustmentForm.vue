@@ -54,6 +54,7 @@ onUnmounted(() => {
 });
 
 const form = ref({
+  tr_day: String(new Date().getDate()).padStart(2, "0"),
   tr_month: String(new Date().getMonth() + 1).padStart(2, "0"),
   tr_year: new Date().getFullYear(),
   nhan_vien: "",
@@ -64,12 +65,21 @@ const form = ref({
   note: "",
 });
 
-const availableGroups = ref([]);
+const allGroupsFromDb = ref([]);
+const availableGroups = computed(() => {
+  if (form.value.source_type === 'dealer') {
+    return ['CA', 'BHXH', 'HDDT', 'SIP TRUNK', 'Doanh Thu Thêm'];
+  }
+  // AM channel: all except SIP TRUNK, plus 'Doanh Thu Thêm'
+  const groups = allGroupsFromDb.value.filter(g => g !== 'SIP TRUNK');
+  if (!groups.includes('Doanh Thu Thêm')) groups.push('Doanh Thu Thêm');
+  return groups;
+});
 
 const fetchGroups = async () => {
   try {
-    const res = await dashboardService.getProductGroups(form.value.source_type);
-    availableGroups.value = res.data;
+    const res = await dashboardService.getProductGroups();
+    allGroupsFromDb.value = res.data.filter(g => g !== 'all');
   } catch (err) {
     console.error("Failed to fetch groups:", err);
   }
@@ -80,10 +90,31 @@ const fetchAvailableStaff = async () => {
     availableStaffDetails.value = [];
     return;
   }
+
+  // Đặc biệt cho SIP TRUNK hoặc Doanh Thu Thêm: Hiển thị toàn bộ nhân viên/đại lý của kênh đó
+  const isSpecialGroup = 
+    form.value.product_group === 'SIP TRUNK' || 
+    form.value.product_group === 'Doanh Thu Thêm';
+
+  if (isSpecialGroup) {
+    try {
+      const res = await dashboardService.getStaffNames({ source: form.value.source_type });
+      availableStaffDetails.value = res.data.map(name => ({
+        nhan_vien: name,
+        current_revenue: 0,
+        current_quantity: 0
+      }));
+      return;
+    } catch (err) {
+      console.error("Failed to fetch special group staff list:", err);
+    }
+  }
+
   try {
     const res = await adjustmentService.getAvailableStaff({
       tr_year: form.value.tr_year,
       tr_month: form.value.tr_month,
+      tr_day: form.value.tr_day,
       product_group: form.value.product_group,
       source_type: form.value.source_type,
     });
@@ -114,6 +145,7 @@ watch(
   [
     () => form.value.tr_year,
     () => form.value.tr_month,
+    () => form.value.tr_day,
     () => form.value.product_group,
   ],
   () => {
@@ -122,7 +154,12 @@ watch(
 );
 
 const submitForm = () => {
-  if (selectedStaffBalance.value) {
+  if (!form.value.note || !form.value.note.trim()) {
+    toast.error("Vui lòng nhập ghi chú lý do điều chỉnh");
+    return;
+  }
+
+  if (selectedStaffBalance.value && form.value.product_group !== 'SIP TRUNK') {
     if (
       form.value.adj_quantity < 0 &&
       Math.abs(form.value.adj_quantity) >
@@ -182,21 +219,36 @@ defineExpose({
 
     <form @submit.prevent="submitForm" class="space-y-4">
       <!-- Time selection -->
-      <div class="grid grid-cols-2 gap-4">
+      <div class="grid grid-cols-3 gap-3">
+        <div>
+          <label class="block text-sm font-bold text-gray-700 mb-1">Ngày</label>
+          <select
+            v-model="form.tr_day"
+            class="w-full p-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none pr-1"
+          >
+            <option
+              v-for="d in 31"
+              :key="d"
+              :value="String(d).padStart(2, '0')"
+            >
+              {{ d }}
+            </option>
+          </select>
+        </div>
         <div>
           <label class="block text-sm font-bold text-gray-700 mb-1"
             >Tháng</label
           >
           <select
             v-model="form.tr_month"
-            class="w-full p-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+            class="w-full p-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none pr-1"
           >
             <option
               v-for="m in 12"
               :key="m"
               :value="String(m).padStart(2, '0')"
             >
-              Tháng {{ m }}
+              T{{ m }}
             </option>
           </select>
         </div>

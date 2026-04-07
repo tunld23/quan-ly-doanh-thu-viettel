@@ -70,7 +70,7 @@ api.interceptors.response.use(
         return api(originalRequest);
       } catch (refreshError) {
         processQueue(refreshError, null);
-        console.warn("Phiên đăng nhập đã hết hạn hoặc không hợp lệ, vui lòng đăng nhập lại");
+        console.warn("Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại");
         
         const { useAuthStore } = await import('../stores/auth');
         const authStore = useAuthStore();

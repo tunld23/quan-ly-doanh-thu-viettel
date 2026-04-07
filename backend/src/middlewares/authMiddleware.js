@@ -10,7 +10,7 @@ export const authenticateJWT = (req, res, next) => {
     jwt.verify(token, process.env.JWT_SECRET || "supersecretjwtkey_placeholder_123", (err, user) => {
       if (err) {
         // Token is invalid or expired
-        return res.status(403).json({ message: "Forbidden: Invalid or expired token" });
+        return res.status(401).json({ message: "Unauthorized: Invalid or expired token" });
       }
       
       // Store user payload in request object

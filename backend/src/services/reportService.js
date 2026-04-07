@@ -11,6 +11,7 @@ export const updateSummaryReport = async () => {
       CREATE TABLE summary_report (
         tr_year INT,
         tr_month NVARCHAR(2),
+        tr_day NVARCHAR(2),
         nhan_vien NVARCHAR(255),
         product_group NVARCHAR(255),
         source_type NVARCHAR(50),
@@ -26,22 +27,24 @@ export const updateSummaryReport = async () => {
     TRUNCATE TABLE staff_service_count;
     
     -- 1. Populate staff_service_count strictly from detail table (counting staff/records)
-    INSERT INTO staff_service_count (tr_year, tr_month, nhan_vien, product_group, source_type, service_count)
+    INSERT INTO staff_service_count (tr_year, tr_month, tr_day, nhan_vien, product_group, source_type, service_count)
     SELECT 
       tr_year, 
       tr_month, 
+      tr_day,
       nhan_vien, 
       product_group, 
       source_type,
       COUNT(*) as service_count
     FROM detail
-    GROUP BY tr_year, tr_month, nhan_vien, product_group, source_type;
+    GROUP BY tr_year, tr_month, tr_day, nhan_vien, product_group, source_type;
 
     -- 2. Populate summary_report by merging Revenue (from product + adjustments)
-    INSERT INTO summary_report (tr_year, tr_month, nhan_vien, product_group, source_type, total_amount)
+    INSERT INTO summary_report (tr_year, tr_month, tr_day, nhan_vien, product_group, source_type, total_amount)
     SELECT 
       t.tr_year, 
       t.tr_month, 
+      t.tr_day,
       t.nhan_vien, 
       t.product_group, 
       t.source_type,
@@ -49,7 +52,7 @@ export const updateSummaryReport = async () => {
     FROM (
       -- Source A: Revenue from product table
       SELECT 
-        tr_year, tr_month, nhan_vien, product_group, source_type,
+        tr_year, tr_month, tr_day, nhan_vien, product_group, source_type,
         ISNULL(without_vat, 0) as revenue
       FROM product
       
@@ -57,12 +60,12 @@ export const updateSummaryReport = async () => {
       
       -- Source C: Manual Adjustments (revenue only for summary)
       SELECT 
-        tr_year, tr_month, nhan_vien, product_group, 
+        tr_year, tr_month, tr_day, nhan_vien, product_group, 
         ISNULL(source_type, 'manual') as source_type,
         ISNULL(adj_amount, 0) as revenue
       FROM adjustments
     ) t
-    GROUP BY t.tr_year, t.tr_month, t.nhan_vien, t.product_group, t.source_type;
+    GROUP BY t.tr_year, t.tr_month, t.tr_day, t.nhan_vien, t.product_group, t.source_type;
   `);
 
   console.log("Summary report updated successfully!");
