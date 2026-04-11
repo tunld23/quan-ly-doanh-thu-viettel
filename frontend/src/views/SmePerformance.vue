@@ -38,6 +38,15 @@ const unifiedSubscriberKpis = computed(() => {
   return all.filter((kpi) => kpi.target > 0);
 });
 
+const totalRevenueKpi = computed(() => {
+  const dealer = revenueKpis.value[0];
+  const am = revenueKpis.value[2];
+  const actual = (dealer?.actual || 0) + (am?.actual || 0);
+  const target = (dealer?.target || 0) + (am?.target || 0);
+  const percent = target > 0 ? (actual / target) * 100 : 0;
+  return { actual, target, percent };
+});
+
 const isAnyTargetEntered = computed(() => {
   return (
     revenueKpis.value.some((k) => k.target > 0) ||
@@ -228,8 +237,10 @@ onMounted(fetchKpis);
                 title="Tỷ trọng Đóng góp (%)"
                 label1="Đại lý"
                 :value1="revenueKpis[0].actual"
+                :target1="revenueKpis[0].target"
                 label2="Kênh AM"
                 :value2="revenueKpis[2].actual"
+                :target2="revenueKpis[2].target"
                 :comparisons="comparisons"
                 unit="Triệu đồng"
               />

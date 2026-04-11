@@ -268,15 +268,8 @@ const EXCEL_CONFIGS = {
       requiredMarkers: ["ngày nghiệm thu", "user"],
       parse: (row) => {
         const rawUser = String(row[45] || "").trim(); // Cột AT
-        const colAZ = String(row[51] || "").trim().toLowerCase(); // Cột AZ
-
         // Filter: Cột AT chứa "SME"
         if (!rawUser.toUpperCase().includes("SME")) {
-          return { rawUser: "skip" };
-        }
-
-        // Filter: Cột AZ loại bỏ "cá nhân"
-        if (colAZ.includes("cá nhân") || colAZ.includes("ca nhan")) {
           return { rawUser: "skip" };
         }
 
@@ -324,7 +317,6 @@ const EXCEL_CONFIGS = {
       parse: (row, groupType, extraConfig) => {
         const rawUser = String(row[25] || "").trim(); // Cột Z
         const rawMa = String(row[12] || "").trim(); // Cột M
-        const colN = String(row[13] || "").trim().toLowerCase(); // Cột N
 
         // Filter: Cột Z chứa "sme"
         if (!rawUser.toLowerCase().includes("sme")) return { rawUser: "skip" };
@@ -341,16 +333,6 @@ const EXCEL_CONFIGS = {
         }
 
         if (!hasKeyword) return { rawUser: "skip" };
-
-        // Filter: Cột N loại trừ "cá nhân", "tư nhân"
-        if (
-          colN.includes("cá nhân") ||
-          colN.includes("ca nhan") ||
-          colN.includes("tư nhân") ||
-          colN.includes("tu nhan")
-        ) {
-          return { rawUser: "skip" };
-        }
 
         return {
           rawDate: row[9], // Cột J

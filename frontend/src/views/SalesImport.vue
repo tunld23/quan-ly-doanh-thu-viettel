@@ -154,7 +154,6 @@ const rules = {
     { label: "Kỳ hạn", rule: "Cột AF (Ngày nghiệm thu)" },
     { label: "Nhân viên", rule: "Cột AT (phải chứa 'SME')" },
     { label: "Sản phẩm", rule: "Cột Y (Mã-Mặt hàng)" },
-    { label: "Loại trừ", rule: "Cột AZ (không chứa 'cá nhân')" },
   ],
   vContract: [
     { label: "Kỳ hạn", rule: "Cột V" },
@@ -179,7 +178,6 @@ const m2mRules = computed(() => {
     { label: "Kỳ hạn", rule: "Cột J (Ngày hòa mạng)" },
     { label: "Nhân viên", rule: "Cột Z (phải chứa 'sme')" },
     { label: "Sản phẩm", rule: `Cột M chứa 1 trong: ${m2mKeywords.value.join(', ')}` },
-    { label: "Loại trừ", rule: "Cột N (không chứa 'cá nhân', 'tư nhân')" },
   ];
 });
 

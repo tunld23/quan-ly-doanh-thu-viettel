@@ -2,8 +2,10 @@
 defineProps({
   label1: String,
   value1: Number,
+  target1: { type: Number, default: 0 },
   label2: String,
   value2: Number,
+  target2: { type: Number, default: 0 },
   title: String,
   unit: String,
   comparisons: {
@@ -97,7 +99,7 @@ const calcPercent = (v, total) => {
         </div>
       </div>
 
-      <div class="flex items-center justify-center gap-10 w-full mb-10">
+      <div class="flex items-center justify-center gap-10 w-full mb-6">
         <div class="flex flex-col items-center">
           <div class="flex items-center gap-2 mb-1">
             <div class="w-3 h-3 bg-[#1b254b] rounded-full shadow-lg"></div>
@@ -127,8 +129,63 @@ const calcPercent = (v, total) => {
         </div>
       </div>
 
+      <!-- TINY COMBINED PROGRESS -->
+      <div v-if="target1 + target2 > 0" class="w-full px-2 mb-4">
+        <div
+          class="flex items-center justify-between gap-3 mb-1.5 grayscale opacity-70 group-hover:grayscale-0 group-hover:opacity-100 transition-all duration-500"
+        >
+          <div class="flex items-center gap-2">
+            <svg
+              class="w-3 h-3 text-indigo-500"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="3"
+                d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"
+              />
+            </svg>
+            <span
+              class="text-[10px] font-black text-slate-500 uppercase tracking-widest"
+              >Tiến độ KH tổng:</span
+            >
+          </div>
+          <span class="text-[14px] font-black text-[#1b254b] leading-none"
+            >{{ calcPercent(value1 + value2, target1 + target2) }}%</span
+          >
+        </div>
+        <div
+          class="h-1.5 bg-slate-100 rounded-full overflow-hidden border border-slate-50 mb-1.5"
+        >
+          <div
+            class="h-full bg-gradient-to-r from-indigo-500 to-[#ee0033] rounded-full transition-all duration-[1500ms] cubic-bezier(0.34, 1.56, 0.64, 1)"
+            :style="{
+              width:
+                Math.min(calcPercent(value1 + value2, target1 + target2), 100) +
+                '%',
+            }"
+          ></div>
+        </div>
+        <div
+          class="flex justify-between items-center text-[9px] font-black uppercase tracking-wider text-slate-400"
+        >
+          <span>KH: {{ (target1 + target2).toLocaleString() }}</span>
+          <span
+            >TH:
+            {{
+              (value1 + value2).toLocaleString(undefined, {
+                maximumFractionDigits: 1,
+              })
+            }}</span
+          >
+        </div>
+      </div>
+
       <!-- MERGED COMPARISONS -->
-      <div class="mt-4 pt-6 border-t border-slate-100 space-y-1">
+      <div class="pt-6 border-t border-slate-100 space-y-1">
         <template
           v-for="(comp, idx) in [
             {
