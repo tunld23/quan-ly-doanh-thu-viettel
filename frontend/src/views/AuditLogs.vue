@@ -39,8 +39,8 @@
           class="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600 dark:text-white"
         >
           <option value="">Tất cả</option>
-          <option value="IMPORT">Nhập Sản phẩm</option>
-          <option value="IMPORT_SALES">Nhập Detail (Sales)</option>
+          <option value="IMPORT">Nhập Doanh Thu</option>
+          <option value="IMPORT_SALES">Nhập Thuê Bao</option>
           <option value="CREATE">Tạo Điều chỉnh</option>
           <option value="DELETE">Xóa Điều chỉnh</option>
           <option value="CREATE_TARGET">Nhập Chỉ tiêu</option>

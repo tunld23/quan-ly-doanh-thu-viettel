@@ -1,126 +1,141 @@
 <script setup>
-import { ref } from "vue";
+import { computed } from "vue";
+import { PREDEFINED_TARGETS } from "../../composables/useTargets";
 import EmptyData from "../common/EmptyData.vue";
 
 const props = defineProps({
-  filteredTargets: Array,
+  allTargets: Array,
   years: Array,
-  uniqueGroupsInList: Array,
-  listTypeFilter: String,
   listYearFilter: [String, Number],
-  listGroupFilter: String,
+  listMonthFilter: String,
   loading: Boolean,
 });
 
 const emit = defineEmits([
-  "update:listTypeFilter",
   "update:listYearFilter",
-  "update:listGroupFilter",
+  "update:listMonthFilter",
   "delete",
 ]);
 
+const months = Array.from({ length: 12 }, (_, i) => (i + 1).toString().padStart(2, "0"));
+
+const dataForSelectedPeriod = computed(() => {
+  const year = parseInt(props.listYearFilter);
+  const month = props.listMonthFilter;
+  const filtered = (props.allTargets || []).filter(t => 
+    parseInt(t.tr_year) === year && t.tr_month === month
+  );
+
+  const mapped = PREDEFINED_TARGETS.map(pt => {
+    const found = filtered.find(t => 
+      t.product_group === pt.dbName && 
+      t.type === pt.type
+    );
+    return {
+      ...pt,
+      amount: found ? found.amount : null,
+      month: month,
+      year: year
+    };
+  });
+
+  return mapped.filter(d => d.amount !== null);
+});
+
+const hasData = computed(() => dataForSelectedPeriod.value.some(d => d.amount !== null));
+
+const formatAmount = (val) => {
+  if (val === null) return "-";
+  return val.toLocaleString("vi-VN");
+};
+
 const onDelete = (target) => {
-  emit("delete", target);
+  emit("delete", {
+    tr_year: target.year,
+    tr_month: target.month,
+    product_group: target.dbName,
+    type: target.type
+  });
 };
 </script>
 
 <template>
-  <div class="mt-10 bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden">
-    <div class="px-6 py-5 border-b border-gray-100 bg-gray-50/40">
-      <div class="mb-4">
-        <h2 class="text-xs font-black text-gray-700 uppercase tracking-widest">Danh sách ghi nhận</h2>
+  <div class="mt-10 bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden">
+    <div class="px-8 py-6 border-b border-gray-100 bg-gray-50/40 flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div>
+        <h2 class="text-sm font-black text-gray-800 uppercase tracking-widest flex items-center gap-2">
+          <div class="w-2.5 h-2.5 bg-indigo-500 rounded-lg shadow-sm"></div>
+          Báo cáo chỉ tiêu tháng {{ listMonthFilter }}/{{ listYearFilter }}
+        </h2>
       </div>
 
-      <div class="flex items-center justify-between">
-        <div class="flex items-center space-x-1 p-0.5 bg-gray-200/50 rounded-lg">
-          <button
-            @click="emit('update:listTypeFilter', 'Doanh thu')"
-            :class="listTypeFilter === 'Doanh thu' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500'"
-            class="px-3 py-1.5 rounded text-[9px] font-black uppercase transition-all"
-          >
-            Doanh thu
-          </button>
-          <button
-            @click="emit('update:listTypeFilter', 'Thuê Bao')"
-            :class="listTypeFilter === 'Thuê Bao' ? 'bg-white text-emerald-600 shadow-sm' : 'text-gray-500'"
-            class="px-3 py-1.5 rounded text-[9px] font-black uppercase transition-all"
-          >
-            Thuê bao
-          </button>
-        </div>
-
-        <div class="flex items-center space-x-2">
-          <select
-            :value="listYearFilter"
-            @change="emit('update:listYearFilter', $event.target.value)"
-            class="compact-filter-select"
-          >
-            <option value="all">Tất cả Năm</option>
-            <option v-for="y in years" :key="y" :value="y">{{ y }}</option>
-          </select>
-          <select
-            :value="listGroupFilter"
-            @change="emit('update:listGroupFilter', $event.target.value)"
-            class="compact-filter-select max-w-[130px]"
-          >
-            <option value="all">Tất cả Nhóm</option>
-            <option v-for="gp in uniqueGroupsInList" :key="gp" :value="gp">
-              {{ (gp === "Internet truyền hình" || gp === "Internet Truyền hình") ? "Internet" : gp }}
-            </option>
-          </select>
-        </div>
+      <div class="flex items-center space-x-3 bg-white p-1.5 rounded-2xl shadow-sm border border-gray-100/50">
+        <select
+          :value="listMonthFilter"
+          @change="emit('update:listMonthFilter', $event.target.value)"
+          class="compact-filter-select"
+        >
+          <option v-for="m in 12" :key="m" :value="String(m).padStart(2, '0')">Tháng {{ m }}</option>
+        </select>
+        <select
+          :value="listYearFilter"
+          @change="emit('update:listYearFilter', $event.target.value)"
+          class="compact-filter-select"
+        >
+          <option v-for="y in years" :key="y" :value="y">Năm {{ y }}</option>
+        </select>
       </div>
     </div>
 
-    <div class="overflow-x-auto">
-      <table class="w-full text-left">
+    <div class="overflow-hidden">
+      <table class="w-full text-left border-collapse">
         <thead>
-          <tr class="bg-gray-50/60 text-gray-400 text-[9px] font-black uppercase tracking-[0.12em]">
-            <th class="px-6 py-4 border-b border-gray-50">Kênh</th>
-            <th class="px-6 py-4 border-b border-gray-50">Kỳ hạn</th>
-            <th class="px-6 py-4 border-b border-gray-50">Nhóm hàng</th>
-            <th class="px-6 py-4 border-b border-gray-50 text-right">Mục tiêu</th>
-            <th class="px-6 py-4 border-b border-gray-50 w-10"></th>
+          <tr class="bg-gray-50/30 text-gray-400 text-[10px] font-black uppercase tracking-[0.2em] border-b border-gray-50">
+            <th class="px-8 py-5">Tên chỉ tiêu chiến lược</th>
+            <th class="px-8 py-5 text-right w-48">Giá trị mục tiêu</th>
+            <th class="px-4 py-5 w-16"></th>
           </tr>
         </thead>
-        <tbody class="divide-y divide-gray-50">
+        <tbody class="divide-y divide-gray-50/50">
           <tr v-if="loading">
-            <td colspan="5" class="px-6 py-10 text-center text-gray-400 text-xs font-bold animate-pulse">Đang nạp dữ liệu...</td>
+            <td colspan="3" class="px-8 py-20 text-center text-gray-400 text-xs font-bold animate-pulse uppercase tracking-widest">
+              Đang đồng bộ dữ liệu...
+            </td>
           </tr>
-          <tr v-else-if="filteredTargets.length === 0">
-            <td colspan="5">
-              <EmptyData title="Danh sách trống" message="Không có dữ liệu chỉ tiêu nào phù hợp với bộ lọc hiện tại." />
+          <tr v-else-if="!hasData">
+            <td colspan="3">
+              <EmptyData title="Chưa nạp chỉ tiêu" message="Hãy chọn tháng/năm khác hoặc nạp chỉ tiêu mới ở trên." />
             </td>
           </tr>
           <tr
-            v-for="t in filteredTargets"
-            :key="`${t.tr_year}-${t.tr_month}-${t.source_type}-${t.product_group}-${t.type}`"
-            class="group hover:bg-blue-50/30 transition-all border-l-4 border-transparent hover:border-blue-500"
+            v-for="row in dataForSelectedPeriod"
+            :key="row.id"
+            class="group hover:bg-slate-50 transition-all duration-200"
           >
-            <td class="px-6 py-4">
-              <span
-                :class="t.source_type === 'am' ? 'bg-indigo-50 text-indigo-600' : 'bg-emerald-50 text-emerald-600'"
-                class="px-2 py-0.5 rounded text-[9px] font-black uppercase shadow-sm border border-black/5"
+            <td class="px-8 py-5">
+              <div class="flex flex-col">
+                <span class="text-[13px] font-black text-slate-700 leading-tight group-hover:text-indigo-600 transition-colors">{{ row.name }}</span>
+                <span class="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-1.5 flex items-center gap-1.5">
+                  <span class="w-1.5 h-1.5 rounded-full" :class="row.type === 'Doanh thu' ? 'bg-blue-400' : 'bg-emerald-400'"></span>
+                  {{ row.type }}
+                </span>
+              </div>
+            </td>
+            <td class="px-8 py-5 text-right">
+              <div v-if="row.amount !== null" class="flex flex-col items-end">
+                <span class="text-base font-black text-slate-900 tabular-nums">{{ formatAmount(row.amount) }}</span>
+                <span class="text-[9px] font-black text-indigo-400/80 uppercase mt-0.5 tracking-tighter">{{ row.unit }}</span>
+              </div>
+              <span v-else class="text-xs font-bold text-slate-200 uppercase tracking-widest italic">Chưa nhập</span>
+            </td>
+            <td class="px-4 py-5 text-right">
+              <button 
+                v-if="row.amount !== null"
+                @click="onDelete(row)"
+                class="p-2 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all opacity-0 group-hover:opacity-100"
+                title="Xóa chỉ tiêu này"
               >
-                {{ t.source_type }}
-              </span>
-            </td>
-            <td class="px-6 py-4 text-xs font-bold text-gray-500 tabular-nums">{{ t.tr_month }}/{{ t.tr_year }}</td>
-            <td class="px-6 py-4 text-xs font-black text-gray-700">
-              {{ (t.product_group === "Internet truyền hình" || t.product_group === "Internet Truyền hình") ? "Internet" : t.product_group }}
-            </td>
-            <td class="px-6 py-4 text-right text-sm font-black text-gray-900 tabular-nums">
-              {{ t.amount.toLocaleString("vi-VN") }}
-              <span class="text-[9px] text-gray-400 font-normal ml-0.5 uppercase tracking-tighter">
-                {{ t.type === "Doanh thu" ? "VNĐ" : "tb" }}
-              </span>
-            </td>
-            <td class="px-6 py-4 text-right">
-              <button
-                @click="onDelete(t)"
-                class="p-1.5 text-gray-300 hover:text-red-500 transition-all rounded-lg opacity-0 group-hover:opacity-100 hover:bg-red-50"
-              >
-                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                 </svg>
               </button>
@@ -134,10 +149,10 @@ const onDelete = (target) => {
 
 <style scoped>
 .compact-filter-select {
-  @apply px-3 py-1.5 rounded-lg border border-gray-200 bg-white text-[10px] font-black text-gray-600 outline-none focus:border-blue-400 appearance-none cursor-pointer pr-7;
-  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/xml' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%2394a3b8' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
-  background-position: right 0.5rem center;
+  @apply px-4 py-2 rounded-xl border-none bg-slate-50 text-[11px] font-black text-slate-600 outline-none focus:ring-2 focus:ring-indigo-500/20 appearance-none cursor-pointer pr-9 transition-all;
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236366f1' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
+  background-position: right 0.75rem center;
   background-repeat: no-repeat;
-  background-size: 1em 1em;
+  background-size: 1.1em 1.1em;
 }
 </style>

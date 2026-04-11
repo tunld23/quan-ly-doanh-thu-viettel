@@ -108,31 +108,6 @@
             </svg>
             Thuê bao
           </button>
-          <button
-            @click="$emit('update:viewMode', 'target')"
-            class="flex items-center gap-2.5 px-5 py-2.5 rounded-lg text-sm font-bold transition-all duration-300"
-            :class="
-              viewMode === 'target'
-                ? 'bg-white text-emerald-600 shadow-md ring-1 ring-black/5 scale-[1.02]'
-                : 'text-gray-500 hover:text-gray-700 hover:bg-gray-200/40'
-            "
-          >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              class="w-4 h-4 mr-1.5"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width="2"
-                d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"
-              />
-            </svg>
-            Tỷ lệ hoàn thành
-          </button>
         </div>
       </div>
     </div>

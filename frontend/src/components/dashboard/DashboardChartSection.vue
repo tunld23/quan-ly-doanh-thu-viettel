@@ -18,6 +18,12 @@ const chartRef = ref(null);
 const pieChartRef = ref(null);
 let chart = null;
 let pie = null;
+let resizeObserver = null;
+
+const handleResize = () => {
+  chart?.resize();
+  pie?.resize();
+};
 
 onMounted(() => {
   if (chartRef.value) {
@@ -28,9 +34,20 @@ onMounted(() => {
     pie = echarts.init(pieChartRef.value);
     emit("pie-ready", pie);
   }
+
+  resizeObserver = new ResizeObserver(() => {
+    handleResize();
+  });
+
+  if (chartRef.value?.parentElement) resizeObserver.observe(chartRef.value.parentElement);
+  if (pieChartRef.value?.parentElement) resizeObserver.observe(pieChartRef.value.parentElement);
+
+  window.addEventListener("resize", handleResize);
 });
 
 onUnmounted(() => {
+  resizeObserver?.disconnect();
+  window.removeEventListener("resize", handleResize);
   chart?.dispose();
   pie?.dispose();
 });
@@ -41,7 +58,7 @@ onUnmounted(() => {
     <div class="lg:col-span-8 relative bg-gray-50/50 p-6 rounded-3xl border border-gray-100/50">
       <h3 class="text-[18px] text-gray-800 mb-6 font-black flex items-center justify-between">
         <div class="flex items-center gap-3">
-          <div class="w-1.5 h-6 bg-blue-600 rounded-full"></div>
+          <div class="w-1.5 h-6 rounded-full" :class="activeMetric === 'serviceCount' ? 'bg-emerald-500' : 'bg-[#e53935]'"></div>
           {{
             isComparisonMode
               ? isSinglePoint

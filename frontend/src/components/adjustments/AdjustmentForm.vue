@@ -149,40 +149,68 @@ watch(
     () => form.value.product_group,
   ],
   () => {
+    // Tự động gán nhân viên là SIP TRUNK nếu chọn nhóm này
+    if (form.value.product_group === 'SIP TRUNK') {
+      form.value.nhan_vien = 'SIP TRUNK';
+      searchStaff.value = 'SIP TRUNK';
+    } else if (form.value.nhan_vien === 'SIP TRUNK') {
+      // Nếu chuyển từ SIP TRUNK sang nhóm khác thì xóa nhân viên cũ
+      form.value.nhan_vien = '';
+      searchStaff.value = '';
+    }
     fetchAvailableStaff();
   },
 );
 
 const submitForm = () => {
-  if (!form.value.note || !form.value.note.trim()) {
-    toast.error("Vui lòng nhập ghi chú lý do điều chỉnh");
-    return;
-  }
-
-  if (selectedStaffBalance.value && form.value.product_group !== 'SIP TRUNK') {
-    if (
-      form.value.adj_quantity < 0 &&
-      Math.abs(form.value.adj_quantity) >
-        selectedStaffBalance.value.current_quantity
-    ) {
-      toast.error(
-        `Số lượng trừ đi không thể vượt quá ${selectedStaffBalance.value.current_quantity}`,
-      );
+  try {
+    if (!form.value.product_group) {
+      toast.error("Vui lòng chọn nhóm sản phẩm");
       return;
     }
-    if (
-      form.value.adj_amount < 0 &&
-      Math.abs(form.value.adj_amount) >
-        selectedStaffBalance.value.current_revenue
-    ) {
-      toast.error(
-        `Số tiền trừ đi không thể vượt quá ${selectedStaffBalance.value.current_revenue.toLocaleString()} VNĐ`,
-      );
+
+    if (!form.value.nhan_vien) {
+      toast.error("Vui lòng chọn nhân viên từ danh sách gợi ý");
       return;
     }
-  }
 
-  emit("submit", { ...form.value });
+    if (!form.value.note || String(form.value.note).trim() === "") {
+      toast.error("Vui lòng nhập ghi chú lý do điều chỉnh");
+      return;
+    }
+
+    if (selectedStaffBalance.value && form.value.product_group !== 'SIP TRUNK') {
+      if (
+        form.value.adj_quantity < 0 &&
+        Math.abs(form.value.adj_quantity) >
+          (selectedStaffBalance.value.current_quantity || 0)
+      ) {
+        toast.error(
+          `Số lượng trừ đi không thể vượt quá ${selectedStaffBalance.value.current_quantity || 0}`,
+        );
+        return;
+      }
+      if (
+        form.value.adj_amount < 0 &&
+        Math.abs(form.value.adj_amount) >
+          (selectedStaffBalance.value.current_revenue || 0)
+      ) {
+        toast.error(
+          `Số tiền trừ đi không thể vượt quá ${(selectedStaffBalance.value.current_revenue || 0).toLocaleString()} VNĐ`,
+        );
+        return;
+      }
+    }
+
+    if (form.value.product_group === 'SIP TRUNK') {
+      form.value.adj_quantity = 0;
+    }
+
+    emit("submit", { ...form.value });
+  } catch (err) {
+    console.error("submitForm synchronous error:", err);
+    toast.error("Lỗi giao diện: " + err.message);
+  }
 };
 
 defineExpose({
@@ -330,7 +358,7 @@ defineExpose({
       </div>
 
       <!-- Staff selection (discovery from system) -->
-      <div class="relative" ref="containerRef">
+      <div v-if="form.product_group !== 'SIP TRUNK'" class="relative" ref="containerRef">
         <label class="block text-sm font-bold text-gray-700 mb-1"
           >Nhân viên</label
         >
@@ -408,7 +436,7 @@ defineExpose({
 
       <!-- Current Balance Info -->
       <div
-        v-if="selectedStaffBalance"
+        v-if="selectedStaffBalance && form.product_group !== 'SIP TRUNK'"
         class="bg-blue-50 p-4 rounded-xl border border-blue-100 animate-in fade-in slide-in-from-top-2"
       >
         <div class="flex items-center justify-between text-[13px] mb-1">
@@ -429,8 +457,8 @@ defineExpose({
       </div>
 
       <!-- Adjustment values -->
-      <div class="grid grid-cols-2 gap-4">
-        <div>
+      <div class="grid gap-4" :class="form.product_group === 'SIP TRUNK' ? 'grid-cols-1' : 'grid-cols-2'">
+        <div v-if="form.product_group !== 'SIP TRUNK'">
           <label class="block text-sm font-bold text-gray-700 mb-1"
             >Số lượng (+/-)</label
           >
@@ -472,8 +500,8 @@ defineExpose({
       <!-- Submit button -->
       <button
         type="submit"
-        :disabled="submitting || !form.nhan_vien"
-        class="w-full py-3 bg-blue-600 hover:bg-blue-700 transition-all text-white font-bold rounded-xl shadow-lg flex items-center justify-center space-x-2"
+        :disabled="submitting"
+        class="w-full py-3 bg-blue-600 hover:bg-blue-700 transition-all text-white font-bold rounded-xl shadow-lg flex items-center justify-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
       >
         <span
           v-if="submitting"

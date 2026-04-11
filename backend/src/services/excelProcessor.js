@@ -82,6 +82,7 @@ const EXCEL_CONFIGS = {
         "118112510121": "vContract",
         "129120110806": "vContract",
         "118112010121": "Mysign",
+        "1": "M2M/IOT",
       };
 
       const rawUser = String(row[27] || "Không rõ").trim();
@@ -262,33 +263,30 @@ const EXCEL_CONFIGS = {
         };
       },
     },
-    "Internet Truyền hình": {
+    "Internet": {
       headerRow: 6, // Dòng 7
-      requiredMarkers: [
-        "tỉnh/tp phát triển",
-        "ngày đấu nối",
-        "loại hòa mạng",
-        "user đấu nối",
-      ],
+      requiredMarkers: ["ngày nghiệm thu", "user"],
       parse: (row) => {
-        // Chỉ lấy dòng có cột AL (index 37) là HNI
-        const tinh = String(row[37] || "")
-          .trim()
-          .toUpperCase();
-        if (tinh !== "HNI") {
-          return {
-            rawDate: null,
-            rawUser: "invalid_tinh",
-            rawMa: null,
-            rawMat: null,
-          };
+        const rawUser = String(row[45] || "").trim(); // Cột AT
+        const colAZ = String(row[51] || "").trim().toLowerCase(); // Cột AZ
+
+        // Filter: Cột AT chứa "SME"
+        if (!rawUser.toUpperCase().includes("SME")) {
+          return { rawUser: "skip" };
         }
+
+        // Filter: Cột AZ loại bỏ "cá nhân"
+        if (colAZ.includes("cá nhân") || colAZ.includes("ca nhan")) {
+          return { rawUser: "skip" };
+        }
+
         const split = splitMaMat(row[24]); // Cột Y (Mã-Mặt hàng)
         return {
-          rawDate: row[30], // Cột AE
-          rawUser: row[45], // Cột AT
+          rawDate: row[31], // Cột AF
+          rawUser: rawUser,
           rawMa: split.ma,
           rawMat: split.mat,
+          amount: 1,
         };
       },
     },
@@ -319,6 +317,49 @@ const EXCEL_CONFIGS = {
           .trim()
           .toLowerCase(), // Cột S
       }),
+    },
+    "M2M/IOT": {
+      headerRow: 6, // Dòng 7
+      requiredMarkers: ["ngày", "gói", "nhân viên"],
+      parse: (row, groupType, extraConfig) => {
+        const rawUser = String(row[25] || "").trim(); // Cột Z
+        const rawMa = String(row[12] || "").trim(); // Cột M
+        const colN = String(row[13] || "").trim().toLowerCase(); // Cột N
+
+        // Filter: Cột Z chứa "sme"
+        if (!rawUser.toLowerCase().includes("sme")) return { rawUser: "skip" };
+
+        const m2mKeywords = extraConfig?.m2mKeywords || ["m2m", "evnblu", "dbiz10_1", "sd70ts"];
+        const lowerMa = rawMa.toLowerCase();
+        
+        let hasKeyword = false;
+        for (const kw of m2mKeywords) {
+           if (lowerMa.includes(kw.toLowerCase())) {
+              hasKeyword = true;
+              break;
+           }
+        }
+
+        if (!hasKeyword) return { rawUser: "skip" };
+
+        // Filter: Cột N loại trừ "cá nhân", "tư nhân"
+        if (
+          colN.includes("cá nhân") ||
+          colN.includes("ca nhan") ||
+          colN.includes("tư nhân") ||
+          colN.includes("tu nhan")
+        ) {
+          return { rawUser: "skip" };
+        }
+
+        return {
+          rawDate: row[9], // Cột J
+          rawUser: rawUser,
+          rawMa: rawMa.toLowerCase(),
+          rawMat: rawMa.toLowerCase(),
+          amount: 1,
+        };
+      },
     },
     AM_General: {
       headerRow: 6, // Dòng 7
@@ -360,6 +401,12 @@ const EXCEL_CONFIGS = {
     },
   },
 };
+
+// Add getDb for fetching configurations
+import { getDb } from "../config/db.js";
+import sql from "mssql/msnodesqlv8.js";
+import fs from "fs";
+import path from "path";
 
 /**
  * MAIN EXPORTED FUNCTIONS
@@ -408,6 +455,20 @@ export async function processSalesImportExcel(
   };
   let totalRowsChecked = 0;
 
+  // Fetch extra configurations from JSON file
+  let m2mKeywords = ["m2m", "evnblu", "dbiz10_1", "sd70ts"];
+  try {
+     const configPath = path.resolve(process.cwd(), 'src/config/m2m_keywords.json');
+     if (fs.existsSync(configPath)) {
+        const data = fs.readFileSync(configPath, 'utf8');
+        m2mKeywords = JSON.parse(data);
+     }
+  } catch(e) {
+     console.log("Could not fetch m2m_keywords from file, using defaults", e.message);
+  }
+
+  const extraConfig = { m2mKeywords };
+
   // Xử lý các nhóm AM có thể dùng chung cấu hình hoặc cấu hình mặc định nếu chưa định nghĩa
   let activeType = groupType === "E-Invoice" ? "HDDT" : groupType;
   let config =
@@ -444,7 +505,7 @@ export async function processSalesImportExcel(
         continue;
       }
 
-      const parsed = config.parse(row, groupType);
+      const parsed = config.parse(row, groupType, extraConfig);
       if (parsed.rawUser === "skip") {
         skipReasons.wrongMarker++;
         continue;

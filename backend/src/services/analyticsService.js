@@ -1,6 +1,6 @@
 /**
  * analyticsService.js
- * 
+ *
  * Logic for processing dashboard data from flat records.
  */
 
@@ -9,33 +9,45 @@
  */
 export function filterDashboardData(data, filters) {
   const { year, month, day, quarter, mode } = filters;
-  const targetYears = year && String(year).includes(",") 
-    ? year.split(",").map(y => String(y.trim())) 
-    : (year ? [String(year)] : []);
+  const targetYears =
+    year && String(year).includes(",")
+      ? year.split(",").map((y) => String(y.trim()))
+      : year
+        ? [String(year)]
+        : [];
 
-  return data.filter(item => {
+  return data.filter((item) => {
     // Year filter
-    if (targetYears.length > 0 && !targetYears.includes(String(item.nam))) return false;
-    
+    if (targetYears.length > 0 && !targetYears.includes(String(item.nam)))
+      return false;
+
     // Month & Day filter (MTD logic)
     if (month && day) {
-        const itemMonth = parseInt(item.thang);
-        const itemDay = parseInt(item.ngay || 1);
-        const targetMonth = parseInt(month);
-        const targetDay = parseInt(day);
-        
-        if (itemMonth > targetMonth) return false;
-        if (itemMonth === targetMonth && itemDay > targetDay) return false;
-    } else if (mode === "month" && month && parseInt(item.thang) !== parseInt(month)) {
-        return false;
+      const itemMonth = parseInt(item.thang);
+      const itemDay = parseInt(item.ngay || 1);
+      const targetMonth = parseInt(month);
+      const targetDay = parseInt(day);
+
+      // If we are in "month" mode or both month/day are provided, 
+      // we usually want MTD for THAT month, not Year-To-Date.
+      // But if the user didn't specify a month mode, it might be YTD.
+      // For SmePerformance, it's definitely Monthly MTD.
+      if (itemMonth !== targetMonth) return false; 
+      if (itemDay > targetDay) return false;
+    } else if (
+      mode === "month" &&
+      month &&
+      parseInt(item.thang) !== parseInt(month)
+    ) {
+      return false;
     }
-    
+
     // Quarter filter
     if (mode === "quarter" && quarter) {
       const itemQuarter = Math.ceil(parseInt(item.thang) / 3);
       if (String(itemQuarter) !== String(quarter)) return false;
     }
-    
+
     return true;
   });
 }
@@ -48,13 +60,16 @@ export function computeStaffRankings(allData, filters, metricField) {
 
   const getRankedList = (targetYear) => {
     const stats = {};
-    const yearData = targetYear 
-      ? allData.filter(i => i.nam === targetYear)
+    const yearData = targetYear
+      ? allData.filter((i) => i.nam === targetYear)
       : allData;
 
-    const filtered = filterDashboardData(yearData, { ...filters, year: targetYear || "" });
+    const filtered = filterDashboardData(yearData, {
+      ...filters,
+      year: targetYear || "",
+    });
 
-    filtered.forEach(item => {
+    filtered.forEach((item) => {
       const staff = item.nhanVien || item.nhan_vien || "Không xác định";
       stats[staff] = (stats[staff] || 0) + (item[metricField] || 0);
     });
@@ -66,11 +81,13 @@ export function computeStaffRankings(allData, filters, metricField) {
 
   // 1. Global Mode (Totals across all years)
   if (isNaN(currentYear)) {
-    return getRankedList(null).slice(0, 10).map(item => ({
-      ...item,
-      rankChange: "-",
-      previousValue: 0
-    }));
+    return getRankedList(null)
+      .slice(0, 10)
+      .map((item) => ({
+        ...item,
+        rankChange: "-",
+        previousValue: 0,
+      }));
   }
 
   // 2. Normal Mode (Specific year vs previous year)
@@ -78,7 +95,7 @@ export function computeStaffRankings(allData, filters, metricField) {
   const previousRanked = getRankedList(currentYear - 1);
 
   return currentRanked.slice(0, 10).map((item, index) => {
-    const prevIndex = previousRanked.findIndex(p => p.name === item.name);
+    const prevIndex = previousRanked.findIndex((p) => p.name === item.name);
     let rankChange = "-";
     let previousValue = 0;
 
@@ -99,14 +116,17 @@ export function computeStaffRankings(allData, filters, metricField) {
  */
 export function aggregateComparisonData(allData, filters, metricField) {
   const { year, mode, month, quarter } = filters;
-  
+
   // 1. Determine comparison years
   let years = [];
-  if (year && String(year).includes(',')) {
-    years = String(year).split(',').map(y => parseInt(y.trim())).sort((a, b) => a - b);
+  if (year && String(year).includes(",")) {
+    years = String(year)
+      .split(",")
+      .map((y) => parseInt(y.trim()))
+      .sort((a, b) => a - b);
   } else {
     // If year is empty or a single year, take all distinct years present in the fetched data
-    years = [...new Set(allData.map(d => d.nam))].sort((a, b) => a - b);
+    years = [...new Set(allData.map((d) => d.nam))].sort((a, b) => a - b);
   }
 
   if (years.length === 0) {
@@ -116,21 +136,32 @@ export function aggregateComparisonData(allData, filters, metricField) {
   // 2. Prepare time labels
   const labels = [];
   const timeUnits = [];
-  
+
   if (mode === "month") {
-    const months = month ? [parseInt(month)] : [1,2,3,4,5,6,7,8,9,10,11,12];
-    months.forEach(m => { labels.push(`T${m}`); timeUnits.push({ m }); });
+    const months = month
+      ? [parseInt(month)]
+      : [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
+    months.forEach((m) => {
+      labels.push(`T${m}`);
+      timeUnits.push({ m });
+    });
   } else if (mode === "quarter") {
-    const quarters = quarter ? [parseInt(quarter)] : [1,2,3,4];
-    quarters.forEach(q => { labels.push(`Quý ${q}`); timeUnits.push({ q }); });
+    const quarters = quarter ? [parseInt(quarter)] : [1, 2, 3, 4];
+    quarters.forEach((q) => {
+      labels.push(`Quý ${q}`);
+      timeUnits.push({ q });
+    });
   } else {
     // Default: Show all 12 months
-    for (let m = 1; m <= 12; m++) { labels.push(`T${m}`); timeUnits.push({ m }); }
+    for (let m = 1; m <= 12; m++) {
+      labels.push(`T${m}`);
+      timeUnits.push({ m });
+    }
   }
 
   const getAggregation = (data, y, m, q) => {
     return data
-      .filter(i => {
+      .filter((i) => {
         if (i.nam !== y) return false;
         if (m && parseInt(i.thang) !== m) return false;
         if (q && Math.ceil(parseInt(i.thang) / 3) !== q) return false;
@@ -140,8 +171,10 @@ export function aggregateComparisonData(allData, filters, metricField) {
   };
 
   const yearData = {};
-  years.forEach(y => {
-    yearData[y] = timeUnits.map(unit => getAggregation(allData, y, unit.m, unit.q));
+  years.forEach((y) => {
+    yearData[y] = timeUnits.map((unit) =>
+      getAggregation(allData, y, unit.m, unit.q),
+    );
   });
 
   return { labels, years, yearData };
@@ -150,7 +183,12 @@ export function aggregateComparisonData(allData, filters, metricField) {
 /**
  * Aggregate chart data for single year view + previous year comparison line
  */
-export function aggregateChartData(filteredData, allData, filters, metricField) {
+export function aggregateChartData(
+  filteredData,
+  allData,
+  filters,
+  metricField,
+) {
   const { year, month, quarter, mode } = filters;
   const labels = [];
   const values = [];
@@ -161,17 +199,23 @@ export function aggregateChartData(filteredData, allData, filters, metricField) 
   if (mode === "all" || !mode) {
     if (!year) {
       // Annual Overview
-      const allYears = [...new Set(allData.map(i => i.nam))].sort((a,b) => a - b);
+      const allYears = [...new Set(allData.map((i) => i.nam))].sort(
+        (a, b) => a - b,
+      );
       allYears.forEach((y, idx) => {
         const label = `Năm ${y}`;
         labels.push(label);
-        const val = allData.filter(i => i.nam === y).reduce((s, i) => s + (i[metricField] || 0), 0);
+        const val = allData
+          .filter((i) => i.nam === y)
+          .reduce((s, i) => s + (i[metricField] || 0), 0);
         values.push(val);
-        
+
         let pVal = 0;
         if (idx > 0) {
-          const prevY = allYears[idx-1];
-          pVal = allData.filter(i => i.nam === prevY).reduce((s, i) => s + (i[metricField] || 0), 0);
+          const prevY = allYears[idx - 1];
+          pVal = allData
+            .filter((i) => i.nam === prevY)
+            .reduce((s, i) => s + (i[metricField] || 0), 0);
         }
         prevValues.push(pVal);
       });
@@ -179,37 +223,61 @@ export function aggregateChartData(filteredData, allData, filters, metricField) 
       // Monthly Breakdown - Show all 12 months
       for (let m = 1; m <= 12; m++) {
         labels.push(`T${m}/${year}`);
-        values.push(filteredData.filter(i => parseInt(i.thang) === m).reduce((s, i) => s + (i[metricField] || 0), 0));
-        prevValues.push(allData.filter(i => i.nam === prevYear && parseInt(i.thang) === m).reduce((s, i) => s + (i[metricField] || 0), 0));
+        values.push(
+          filteredData
+            .filter((i) => parseInt(i.thang) === m)
+            .reduce((s, i) => s + (i[metricField] || 0), 0),
+        );
+        prevValues.push(
+          allData
+            .filter((i) => i.nam === prevYear && parseInt(i.thang) === m)
+            .reduce((s, i) => s + (i[metricField] || 0), 0),
+        );
       }
     }
   } else if (mode === "quarter") {
-    const targetQs = quarter ? [parseInt(quarter)] : [1,2,3,4];
+    const targetQs = quarter ? [parseInt(quarter)] : [1, 2, 3, 4];
     targetQs.forEach((q, idx) => {
       const label = `Quý ${q}${year ? "/" + year : ""}`;
       labels.push(label);
-      values.push(filteredData.filter(i => Math.ceil(parseInt(i.thang)/3) === q).reduce((s,i) => s + (i[metricField] || 0), 0));
-      
+      values.push(
+        filteredData
+          .filter((i) => Math.ceil(parseInt(i.thang) / 3) === q)
+          .reduce((s, i) => s + (i[metricField] || 0), 0),
+      );
+
       let pVal = 0;
       if (prevYear) {
-        pVal = allData.filter(i => i.nam === prevYear && Math.ceil(parseInt(i.thang)/3) === q).reduce((s,i) => s + (i[metricField] || 0), 0);
+        pVal = allData
+          .filter(
+            (i) => i.nam === prevYear && Math.ceil(parseInt(i.thang) / 3) === q,
+          )
+          .reduce((s, i) => s + (i[metricField] || 0), 0);
       } else if (!year && idx > 0) {
-        pVal = values[idx-1];
+        pVal = values[idx - 1];
       }
       prevValues.push(pVal);
     });
   } else if (mode === "month") {
-    const targetMs = month ? [parseInt(month)] : [1,2,3,4,5,6,7,8,9,10,11,12];
+    const targetMs = month
+      ? [parseInt(month)]
+      : [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
     targetMs.forEach((m, idx) => {
       const label = `T${m}${year ? "/" + year : ""}`;
       labels.push(label);
-      values.push(filteredData.filter(i => parseInt(i.thang) === m).reduce((s,i) => s + (i[metricField] || 0), 0));
-      
+      values.push(
+        filteredData
+          .filter((i) => parseInt(i.thang) === m)
+          .reduce((s, i) => s + (i[metricField] || 0), 0),
+      );
+
       let pVal = 0;
       if (prevYear) {
-        pVal = allData.filter(i => i.nam === prevYear && parseInt(i.thang) === m).reduce((s,i) => s + (i[metricField] || 0), 0);
+        pVal = allData
+          .filter((i) => i.nam === prevYear && parseInt(i.thang) === m)
+          .reduce((s, i) => s + (i[metricField] || 0), 0);
       } else if (!year && idx > 0) {
-        pVal = values[idx-1];
+        pVal = values[idx - 1];
       }
       prevValues.push(pVal);
     });
@@ -221,19 +289,28 @@ export function aggregateChartData(filteredData, allData, filters, metricField) 
 /**
  * Aggregate data by category and month for line chart, pie chart and table
  */
-export function aggregateCategoryData(allData, filters, metricField, groupField = "product_group") {
+export function aggregateCategoryData(
+  allData,
+  filters,
+  metricField,
+  groupField = "product_group",
+) {
   const { year, month, quarter, mode } = filters;
-  const targetYears = year ? String(year).split(',').map(y => parseInt(y.trim())) : [];
+  const targetYears = year
+    ? String(year)
+        .split(",")
+        .map((y) => parseInt(y.trim()))
+    : [];
   const isNoYear = targetYears.length === 0 || isNaN(targetYears[0]);
 
   // 1. Group data into a Map for efficiency and accuracy (O(n))
   const dataMap = new Map();
   const foundCategories = new Set();
 
-  allData.forEach(item => {
+  allData.forEach((item) => {
     // a. Filter by Year
     if (!isNoYear && !targetYears.includes(parseInt(item.nam))) return;
-    
+
     // b. Filter by Month/Quarter
     const itemMonth = parseInt(item.thang);
     if (mode === "month" && month && itemMonth !== parseInt(month)) return;
@@ -241,23 +318,26 @@ export function aggregateCategoryData(allData, filters, metricField, groupField 
       const itemQuarter = Math.ceil(itemMonth / 3);
       if (String(itemQuarter) !== String(quarter)) return;
     }
-    
+
     // Normalize Category Name (CRITICAL: Remove newlines which appear in DB)
-    let cat = (item[groupField] || "Khác").toString().replace(/[\r\n\t]+/g, " ").trim();
+    let cat = (item[groupField] || "Khác")
+      .toString()
+      .replace(/[\r\n\t]+/g, " ")
+      .trim();
     if (!cat) cat = "Khác";
 
     foundCategories.add(cat);
     if (!dataMap.has(cat)) {
       dataMap.set(cat, new Array(13).fill(0));
     }
-    
+
     if (itemMonth >= 1 && itemMonth <= 12) {
-      dataMap.get(cat)[itemMonth] += (Number(item[metricField]) || 0);
+      dataMap.get(cat)[itemMonth] += Number(item[metricField]) || 0;
     }
   });
 
   const categories = Array.from(foundCategories).sort();
-  
+
   // 2. Determine which months to show (Only months that have data in them, or filtered by selection)
   let months = [];
   if (mode === "month" && month) {
@@ -273,32 +353,34 @@ export function aggregateCategoryData(allData, filters, metricField, groupField 
   const pieData = [];
   const activeSeriesCategories = new Set();
 
-  categories.forEach(cat => {
-    const monthlyValues = months.map(m => dataMap.get(cat)[m]);
+  categories.forEach((cat) => {
+    const monthlyValues = months.map((m) => dataMap.get(cat)[m]);
     const yearTotal = monthlyValues.reduce((a, b) => a + b, 0);
-    
+
     // Chỉ đưa vào series nếu có dữ liệu > 0
     if (yearTotal > 0.01) {
       activeSeriesCategories.add(cat);
       series.push({
         name: cat,
-        data: monthlyValues
+        data: monthlyValues,
       });
 
       pieData.push({
         name: cat,
-        value: yearTotal
+        value: yearTotal,
       });
     }
   });
 
   // Quan trọng: Chỉ trả về danh sách categories thực sự có bóng dáng trong series
-  const finalCategories = categories.filter(c => activeSeriesCategories.has(c));
+  const finalCategories = categories.filter((c) =>
+    activeSeriesCategories.has(c),
+  );
 
   return {
     categories: finalCategories,
-    months: months.map(m => `T${m}`),
+    months: months.map((m) => `T${m}`),
     series,
-    pieData: pieData.sort((a, b) => b.value - a.value)
+    pieData: pieData.sort((a, b) => b.value - a.value),
   };
 }

@@ -14,6 +14,12 @@ const revChartRef = ref(null);
 const subChartRef = ref(null);
 let revChart = null;
 let subChart = null;
+let resizeObserver = null;
+
+const handleResize = () => {
+  revChart?.resize();
+  subChart?.resize();
+};
 
 onMounted(() => {
   if (revChartRef.value) {
@@ -24,9 +30,20 @@ onMounted(() => {
     subChart = echarts.init(subChartRef.value);
     emit("sub-chart-ready", subChart);
   }
+
+  resizeObserver = new ResizeObserver(() => {
+    handleResize();
+  });
+
+  if (revChartRef.value?.parentElement) resizeObserver.observe(revChartRef.value.parentElement);
+  if (subChartRef.value?.parentElement) resizeObserver.observe(subChartRef.value.parentElement);
+
+  window.addEventListener("resize", handleResize);
 });
 
 onUnmounted(() => {
+  resizeObserver?.disconnect();
+  window.removeEventListener("resize", handleResize);
   revChart?.dispose();
   subChart?.dispose();
 });

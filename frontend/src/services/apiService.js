@@ -5,6 +5,7 @@ export const dashboardService = {
   getStatus: () => api.get("/status"),
   getStaffNames: (params) => api.get("/staff", { params }),
   getPerformanceComparison: (params) => api.get("/dashboard/performance-comparison", { params }),
+  getSmeDashboardSummary: (params) => api.get("/dashboard/sme-summary", { params }),
   getProductGroups: (source) =>
     api.get("/product-groups", { params: { source } }),
   getYears: () => api.get("/product/years"),
@@ -42,6 +43,11 @@ export const userService = {
   updateUser: (id, data) => api.put(`/users/${id}`, data),
   deleteUser: (id) => api.delete(`/users/${id}`),
   getAuditLogs: () => api.get("/users/audit"),
+};
+
+export const settingService = {
+  getSetting: (key) => api.get(`/settings/${key}`),
+  updateSetting: (key, value) => api.put(`/settings/${key}`, { value })
 };
 
 export default api;

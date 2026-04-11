@@ -8,12 +8,9 @@ const {
   loading,
   submitting,
   years,
-  productGroups,
-  listTypeFilter,
+  allTargets,
   listYearFilter,
-  listGroupFilter,
-  uniqueGroupsInList,
-  filteredTargets,
+  listMonthFilter,
   submitTarget,
   deleteTarget,
 } = useTargets();
@@ -30,19 +27,16 @@ const {
       <TargetForm
         :form="form"
         :years="years"
-        :product-groups="productGroups"
         :submitting="submitting"
         @submit="submitTarget"
       />
 
       <!-- LIST VIEW -->
       <TargetList
-        v-model:listTypeFilter="listTypeFilter"
         v-model:listYearFilter="listYearFilter"
-        v-model:listGroupFilter="listGroupFilter"
-        :filtered-targets="filteredTargets"
+        v-model:listMonthFilter="listMonthFilter"
+        :all-targets="allTargets"
         :years="years"
-        :unique-groups-In-list="uniqueGroupsInList"
         :loading="loading"
         @delete="deleteTarget"
       />

@@ -280,12 +280,11 @@ async function initDb(db) {
         tr_day NVARCHAR(2) NOT NULL DEFAULT '01',
         tr_year INT NOT NULL,
         tr_month NVARCHAR(2) NOT NULL,
-        source_type NVARCHAR(50) NOT NULL,
         product_group NVARCHAR(255) NOT NULL,
         type NVARCHAR(50) NOT NULL,
         amount FLOAT NOT NULL,
         created_at DATETIME DEFAULT GETDATE(),
-        PRIMARY KEY (tr_day, tr_year, tr_month, source_type, product_group, type)
+        PRIMARY KEY (tr_day, tr_year, tr_month, product_group, type)
       );
     END
     ELSE
@@ -301,7 +300,7 @@ async function initDb(db) {
         ALTER TABLE targets ADD tr_day NVARCHAR(2) NOT NULL DEFAULT '01';
         
         -- 3. Add PK back
-        ALTER TABLE targets ADD CONSTRAINT PK_targets PRIMARY KEY (tr_year, tr_month, tr_day, source_type, product_group, type);
+        ALTER TABLE targets ADD CONSTRAINT PK_targets PRIMARY KEY (tr_year, tr_month, tr_day, product_group, type);
       END
 
       IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('targets') AND name = 'type')
@@ -309,9 +308,6 @@ async function initDb(db) {
       BEGIN
         EXEC sp_rename 'targets.target_type', 'type', 'COLUMN';
       END
-      
-      IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('targets') AND name = 'source_type')
-        ALTER TABLE targets ADD source_type NVARCHAR(50) NOT NULL DEFAULT 'dealer';
         
       IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('targets') AND name = 'created_at')
         ALTER TABLE targets ADD created_at DATETIME DEFAULT GETDATE();

@@ -2,9 +2,46 @@
 import { ref, onMounted, computed, watch } from "vue";
 import { useToast } from "../composables/useToast";
 import FileUpload from "../components/common/FileUpload.vue";
-import { importService, dashboardService } from "../services/apiService";
+import { importService, dashboardService, settingService } from "../services/apiService";
 
 const toast = useToast();
+
+const m2mKeywords = ref(["m2m", "evnblu", "dbiz10_1", "sd70ts"]);
+const showM2mDialog = ref(false);
+const newKeyword = ref("");
+
+const fetchSettings = async () => {
+  try {
+    const res = await settingService.getSetting('m2m_keywords');
+    if (res.data && res.data.value) {
+      m2mKeywords.value = res.data.value;
+    }
+  } catch(e) {
+    // silently fail
+  }
+};
+
+const saveM2mKeywords = async () => {
+  try {
+    await settingService.updateSetting('m2m_keywords', m2mKeywords.value);
+    toast.success("Đã cập nhật danh sách cấu hình M2M");
+    showM2mDialog.value = false;
+  } catch(e) {
+    toast.error("Lỗi khi cập nhật cấu hình");
+  }
+};
+
+const addKeyword = () => {
+  const kw = newKeyword.value.trim().toLowerCase();
+  if (kw && !m2mKeywords.value.includes(kw)) {
+    m2mKeywords.value.push(kw);
+    newKeyword.value = "";
+  }
+};
+
+const removeKeyword = (idx) => {
+  m2mKeywords.value.splice(idx, 1);
+};
 
 const productGroupsMap = {
   dealer: ["CA", "HDDT", "vBHXH"],
@@ -12,7 +49,8 @@ const productGroupsMap = {
     "CA",
     "EasyBooks",
     "HDDT",
-    "Internet Truyền hình",
+    "Internet",
+    "M2M/IOT",
     "MySign",
     "Tendoo",
     "vBHXH",
@@ -44,7 +82,10 @@ const fetchYears = async () => {
   }
 };
 
-onMounted(() => fetchYears());
+onMounted(() => {
+  fetchYears();
+  fetchSettings();
+});
 
 const requiresManualDate = computed(() => {
   if (["Tendoo", "vContract", "vTracking"].includes(selectedType.value))
@@ -109,10 +150,11 @@ const rules = {
     { label: "Nhân viên", rule: "Cột O (Nhân viên đấu nối)" },
     { label: "Sản phẩm", rule: "Cột K (Gói cước)" },
   ],
-  "Internet Truyền hình": [
-    { label: "Kỳ hạn", rule: "Cột AE (Ngày đấu nối)" },
-    { label: "Nhân viên", rule: "Cột AT (User đấu nối)" },
+  "Internet": [
+    { label: "Kỳ hạn", rule: "Cột AF (Ngày nghiệm thu)" },
+    { label: "Nhân viên", rule: "Cột AT (phải chứa 'SME')" },
     { label: "Sản phẩm", rule: "Cột Y (Mã-Mặt hàng)" },
+    { label: "Loại trừ", rule: "Cột AZ (không chứa 'cá nhân')" },
   ],
   vContract: [
     { label: "Kỳ hạn", rule: "Cột V" },
@@ -131,6 +173,16 @@ const rules = {
     { label: "Thành tiền", rule: "Cột L (tự động thêm vào giá của sản phẩm)" },
   ],
 };
+
+const m2mRules = computed(() => {
+  return [
+    { label: "Kỳ hạn", rule: "Cột J (Ngày hòa mạng)" },
+    { label: "Nhân viên", rule: "Cột Z (phải chứa 'sme')" },
+    { label: "Sản phẩm", rule: `Cột M chứa 1 trong: ${m2mKeywords.value.join(', ')}` },
+    { label: "Loại trừ", rule: "Cột N (không chứa 'cá nhân', 'tư nhân')" },
+  ];
+});
+
 const defaultRule = [
   { label: "Điều kiện", rule: "Cột AR phải chứa tên nhóm Sp" },
   { label: "Kỳ hạn", rule: "Tự động lấy tháng/năm hiện tại" },
@@ -218,13 +270,19 @@ const defaultRule = [
             <option value="" disabled>-- Chọn nhóm sản phẩm --</option>
             <option v-for="group in productGroups" :key="group" :value="group">
               {{
-                group === "Internet truyền hình" ||
-                group === "Internet Truyền hình"
+                group === "Internet" ||
+                group === "Internet"
                   ? "Internet"
                   : group
               }}
             </option>
           </select>
+          <div class="mt-3" v-if="selectedType === 'M2M/IOT'">
+             <button @click="showM2mDialog = true" class="text-xs bg-indigo-100 text-indigo-700 px-3 py-1.5 rounded-lg flex items-center font-bold hover:bg-indigo-200 transition-colors">
+               <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+               Cấu hình Gói M2M/IOT hợp lệ
+             </button>
+          </div>
 
           <!-- Rules Display -->
           <div
@@ -256,7 +314,7 @@ const defaultRule = [
                 </p>
                 <ul class="space-y-1.5 ml-1">
                   <li
-                    v-for="rule in rules[selectedType] || defaultRule"
+                    v-for="rule in (selectedType === 'M2M/IOT' ? m2mRules : (rules[selectedType] || defaultRule))"
                     :key="rule.label"
                     class="flex items-center gap-1.5"
                   >
@@ -331,6 +389,53 @@ const defaultRule = [
           >
             <span v-if="importing">Đang xử lý...</span>
             <span v-else>Import Detail</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- M2M Keywords Dialog -->
+    <div v-if="showM2mDialog" class="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+      <div class="bg-white rounded-2xl w-full max-w-md shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
+        <div class="p-5 border-b border-gray-100 flex items-center justify-between bg-indigo-50/50">
+          <h3 class="font-bold text-indigo-900 uppercase tracking-widest text-sm flex items-center">
+            <svg class="w-5 h-5 mr-2 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"></path></svg>
+            Tùy chỉnh Gói M2M
+          </h3>
+          <button @click="showM2mDialog = false" class="text-gray-400 hover:text-gray-800 transition-colors">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+          </button>
+        </div>
+        
+        <div class="p-5">
+          <p class="text-xs text-gray-500 mb-4 leading-relaxed">
+            Thêm các <b>từ khóa</b> nằm trong Cột M để phần mềm tự động nhận diện đó là thuê bao M2M / IOT. (Không phân biệt hoa/thường).
+          </p>
+          
+          <div class="flex flex-wrap gap-2 mb-5 max-h-48 overflow-y-auto p-2 border border-blue-50 bg-blue-50/20 rounded-xl">
+             <div v-for="(kw, idx) in m2mKeywords" :key="kw" class="bg-white border border-indigo-200 text-indigo-700 text-xs px-2.5 py-1.5 rounded-lg flex items-center shadow-sm">
+                <b>{{ kw }}</b>
+                <button @click="removeKeyword(idx)" class="ml-2 text-indigo-400 hover:text-red-500">
+                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                </button>
+             </div>
+             <div v-if="m2mKeywords.length === 0" class="text-xs text-gray-400 italic p-2">Chưa có từ khóa nào.</div>
+          </div>
+
+          <div class="flex gap-2">
+            <input @keyup.enter="addKeyword" v-model="newKeyword" type="text" placeholder="Nhập tên gói (VD: safeon1)" class="flex-1 px-4 py-2 border border-gray-200 rounded-xl text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all">
+            <button @click="addKeyword" class="px-4 py-2 bg-indigo-600 text-white rounded-xl text-sm font-bold shadow-sm hover:bg-indigo-700 transition-colors">
+              Thêm
+            </button>
+          </div>
+        </div>
+
+        <div class="p-4 bg-gray-50 border-t border-gray-100 flex justify-end gap-3">
+          <button @click="showM2mDialog = false" class="px-4 py-2 text-sm font-bold text-gray-600 hover:text-gray-900 transition-colors">
+            Hủy
+          </button>
+          <button @click="saveM2mKeywords" class="px-5 py-2 text-sm font-bold bg-black text-white rounded-xl shadow-md cursor-pointer transition-colors active:scale-95">
+            Lưu thay đổi
           </button>
         </div>
       </div>

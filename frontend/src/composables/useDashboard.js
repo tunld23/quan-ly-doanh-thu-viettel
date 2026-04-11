@@ -53,7 +53,7 @@ export function useDashboard() {
       
       // Rename product groups for UI consistency
       const rename = (name) => 
-        (name === "Internet truyền hình" || name === "Internet Truyền hình") ? "Internet" : name;
+        (name === "Internet" || name === "Internet") ? "Internet" : name;
       if (response.productGroups) {
         productGroups.value = response.productGroups;
       }

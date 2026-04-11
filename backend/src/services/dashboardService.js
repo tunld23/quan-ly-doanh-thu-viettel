@@ -348,43 +348,77 @@ export async function getFilterMetadata(db, { type, source, year, month, quarter
  * Get performance comparisons
  */
 export async function getPerformanceData(db, { year, month, day, source, includeSip }) {
-    const y = parseInt(year);
-    const m = parseInt(month);
-    const d = parseInt(day);
+  const y = parseInt(year);
+  const m = parseInt(month);
+  const d = parseInt(day);
 
-    const todayObj = new Date(y, m - 1, d);
-    const yesterdayObj = new Date(todayObj);
-    yesterdayObj.setDate(todayObj.getDate() - 1);
-    const lastMonthObj = new Date(y, m - 2, d);
-    const lastYearObj = new Date(y - 1, m - 1, d);
+  const todayStr = String(d).padStart(2, "0");
+  const monthStr = String(m).padStart(2, "0");
 
-    const dates = [
-      { key: "today", y, m, d },
-      { key: "yesterday", y: yesterdayObj.getFullYear(), m: yesterdayObj.getMonth() + 1, d: yesterdayObj.getDate() },
-      { key: "lastMonth", y: lastMonthObj.getFullYear(), m: lastMonthObj.getMonth() + 1, d: lastMonthObj.getDate() },
-      { key: "lastYear", y: lastYearObj.getFullYear(), m: lastYearObj.getMonth() + 1, d: lastYearObj.getDate() }
-    ];
+  const todayObj = new Date(y, m - 1, d);
+  const yesterdayObj = new Date(todayObj);
+  yesterdayObj.setDate(todayObj.getDate() - 1);
+  const yesDayStr = String(yesterdayObj.getDate()).padStart(2, "0");
+  const yesMonthStr = String(yesterdayObj.getMonth() + 1).padStart(2, "0");
+  const yesYear = yesterdayObj.getFullYear();
 
-    const results = {};
-    for (const item of dates) {
-       const request = db.request();
-       request.input("y", sql.Int, item.y);
-       request.input("m", sql.NVarChar, String(item.m).padStart(2, "0"));
-       request.input("d", sql.NVarChar, String(item.d).padStart(2, "0"));
+  const lastMonthObj = new Date(y, m - 2, d);
+  const lmMonthStr = String(lastMonthObj.getMonth() + 1).padStart(2, "0");
+  const lmYear = lastMonthObj.getFullYear();
 
-       let where = "tr_year = @y AND tr_month = @m AND tr_day = @d";
-       if (source !== "all") {
-          where += " AND LOWER(TRIM(source_type)) = LOWER(TRIM(@source))";
-          request.input("source", source);
-       }
-       if (includeSip === "false" || includeSip === false) {
-          where += " AND (source_type <> 'dealer' OR LOWER(TRIM(product_group)) IN (LOWER(N'CA'), LOWER(N'BHXH'), LOWER(N'HDDT')))";
-          where += " AND LOWER(TRIM(product_group)) <> LOWER(N'Doanh Thu Thêm')";
-       }
+  const lastYear = y - 1;
 
-       const query = `SELECT SUM(total_amount) as revenue FROM summary_report WHERE ${where}`;
-       const resQuery = await request.query(query);
-       results[item.key] = resQuery.recordset[0]?.revenue || 0;
+  const getSourceFilter = (req) => {
+    let filter = "";
+    if (source === "sme") {
+      filter += " AND LOWER(TRIM(source_type)) IN ('am', 'dealer')";
+    } else if (source !== "all") {
+      filter += " AND LOWER(TRIM(source_type)) = LOWER(TRIM(@source))";
+      req.input("source", source);
     }
-    return results;
+    
+    if (includeSip === "false" || includeSip === false) {
+      filter += " AND (source_type <> 'dealer' OR LOWER(TRIM(product_group)) IN (LOWER(N'CA'), LOWER(N'BHXH'), LOWER(N'HDDT')))";
+      filter += " AND LOWER(TRIM(product_group)) <> LOWER(N'Doanh Thu Thêm')";
+    }
+    return filter;
+  };
+
+  const getDaySum = async (yr, mo, da) => {
+    const req = db.request();
+    req.input("y", sql.Int, yr);
+    req.input("m", sql.NVarChar, mo);
+    req.input("d", sql.NVarChar, da);
+    const filter = getSourceFilter(req);
+    const query = `SELECT SUM(total_amount) as revenue FROM summary_report WHERE tr_year = @y AND tr_month = @m AND tr_day = @d ${filter}`;
+    const res = await req.query(query);
+    return res.recordset[0]?.revenue || 0;
+  };
+
+  const getMtdSum = async (yr, mo, da) => {
+    const req = db.request();
+    req.input("y", sql.Int, yr);
+    req.input("m", sql.NVarChar, mo);
+    req.input("d", sql.NVarChar, da);
+    const filter = getSourceFilter(req);
+    const query = `SELECT SUM(total_amount) as revenue FROM summary_report WHERE tr_year = @y AND tr_month = @m AND tr_day <= @d ${filter}`;
+    const res = await req.query(query);
+    return res.recordset[0]?.revenue || 0;
+  };
+
+  const [todayVal, yesterdayVal, currentMtd, lastMonthMtd, lastYearMtd] = await Promise.all([
+    getDaySum(y, monthStr, todayStr),
+    getDaySum(yesYear, yesMonthStr, yesDayStr),
+    getMtdSum(y, monthStr, todayStr),
+    getMtdSum(lmYear, lmMonthStr, todayStr),
+    getMtdSum(lastYear, monthStr, todayStr),
+  ]);
+
+  return {
+    today: todayVal, 
+    todayMtd: currentMtd,
+    yesterday: yesterdayVal,
+    lastMonth: lastMonthMtd,
+    lastYear: lastYearMtd
+  };
 }

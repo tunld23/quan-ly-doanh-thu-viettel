@@ -7,7 +7,8 @@ import {
   getSalesData,
   getStaffNames,
   refreshSummary,
-  getPerformanceComparisons
+  getPerformanceComparisons,
+  getSmeDashboardSummary
 } from "../controllers/dashboardController.js";
 import {
   importProducts,
@@ -26,6 +27,10 @@ import {
   createTarget,
   deleteTarget,
 } from "../controllers/targetController.js";
+import {
+  getSetting,
+  updateSetting,
+} from "../controllers/configController.js";
 import authRoutes from "./authRoutes.js";
 import userRoutes from "./userRoutes.js";
 import adminRoutes from "./adminRoutes.js";
@@ -37,6 +42,7 @@ router.post("/init", syncData);
 router.get("/dashboard", getDashboardData);
 router.get("/dashboard/performance-comparison", getPerformanceComparisons);
 router.post("/dashboard/refresh", refreshSummary);
+router.get("/dashboard/sme-summary", getSmeDashboardSummary);
 router.get("/sales", getSalesData);
 router.get("/status", getStatus);
 router.get("/product-groups", getProductGroups);
@@ -57,6 +63,10 @@ router.delete("/targets", deleteTarget);
 // New Product Import Route
 router.post("/products/import", upload.single("file"), importProducts);
 router.post("/sales/import", upload.single("file"), importSales);
+
+// Settings
+router.get("/settings/:key", getSetting);
+router.put("/settings/:key", updateSetting);
 
 // Auth & Profiles
 router.use("/auth", authRoutes);

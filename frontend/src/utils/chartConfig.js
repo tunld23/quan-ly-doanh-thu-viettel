@@ -13,7 +13,7 @@ const formatMoney = (val, isCurrency = true) => {
 
 export const getShortName = (name) => {
   if (name === "all") return "Tất cả";
-  if (name === "Internet truyền hình" || name === "Internet Truyền hình")
+  if (name === "Internet" || name === "Internet")
     return "Internet";
   if (name === "Hóa đơn (HDDT)" || name === "Hóa đơn") return "HDDT";
   if (name === "HDDTV") return "HDDT";
@@ -22,7 +22,7 @@ export const getShortName = (name) => {
 
 const CATEGORY_COLOR_MAP = {
   CA: "#3b82f6", // Blue 500
-  "Internet truyền hình": "#22c55e", // Green 500
+  "Internet": "#22c55e", // Green 500
   Internet: "#22c55e",
   HDDT: "#ef4444", // Red 500
   "Hóa đơn (HDDT)": "#ef4444",

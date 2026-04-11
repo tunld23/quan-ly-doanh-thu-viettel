@@ -1,10 +1,9 @@
 <script setup>
-
+import { PREDEFINED_TARGETS } from "../../composables/useTargets";
 
 const props = defineProps({
   form: Object,
   years: Array,
-  productGroups: Array,
   submitting: Boolean,
 });
 
@@ -34,7 +33,7 @@ const handleAmountInput = (e) => {
   // 4. Update input value and restore cursor
   input.value = formatted;
 
-  // Adjust cursor position (advanced)
+  // Adjust cursor position
   const originalBeforeCursor = originalValue.substring(0, originalCursor);
   const digitsBeforeCursor = originalBeforeCursor.replace(/\D/g, "").length;
 
@@ -53,112 +52,108 @@ const handleAmountInput = (e) => {
 const onSubmit = () => {
   emit("submit");
 };
+
+const getTargetInfo = (id) => PREDEFINED_TARGETS.find(t => t.id === id);
 </script>
 
 <template>
-  <div class="bg-white rounded-xl shadow-lg p-6 border border-gray-100 backdrop-blur-sm bg-white/90">
-    <!-- ROW 1: Source Selection -->
-    <div class="mb-6">
-      <label class="flex items-center text-xs font-black uppercase tracking-wider text-gray-500 mb-3">
-        <svg class="w-4 h-4 mr-2 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-        </svg>
-        1. Kênh nạp dữ liệu
-      </label>
-      <div class="grid grid-cols-2 gap-3">
-        <button
-          @click="form.source_type = 'dealer'"
-          :class="`py-3 rounded-xl border-2 transition-all font-bold flex flex-col items-center justify-center space-y-0.5 ${form.source_type === 'dealer' ? 'border-indigo-600 bg-indigo-50 text-indigo-700 shadow-sm' : 'border-gray-50 bg-gray-50 text-gray-400 hover:border-indigo-100'}`"
-        >
-          <span class="text-xs uppercase tracking-widest">Đại Lý</span>
-          <span class="text-[10px] font-normal opacity-70 italic">Ủy Quyền</span>
-        </button>
-        <button
-          @click="form.source_type = 'am'"
-          :class="`py-3 rounded-xl border-2 transition-all font-bold flex flex-col items-center justify-center space-y-0.5 ${form.source_type === 'am' ? 'border-indigo-600 bg-indigo-50 text-indigo-700 shadow-sm' : 'border-gray-50 bg-gray-50 text-gray-400 hover:border-indigo-100'}`"
-        >
-          <span class="text-xs uppercase tracking-widest">AM</span>
-          <span class="text-[10px] font-normal opacity-70 italic">Account Manager</span>
-        </button>
-      </div>
-    </div>
+  <div class="bg-white rounded-2xl shadow-xl p-8 border border-gray-100 backdrop-blur-sm bg-white/90">
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+      <!-- LEFT COLUMN -->
+      <div class="space-y-6">
+        <!-- 1. THỜI GIAN -->
+        <div class="p-4 bg-gray-50/50 rounded-xl border border-gray-100">
+          <label class="flex items-center text-xs font-black uppercase tracking-wider text-gray-400 mb-3 ml-1">
+            <svg class="w-4 h-4 mr-2 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.3" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+            </svg>
+            1. Thời gian áp dụng
+          </label>
+          <div class="grid grid-cols-2 gap-3">
+            <select v-model="form.tr_month" class="input-modern-sm">
+              <option v-for="m in 12" :key="m" :value="m.toString().padStart(2, '0')">Tháng {{ m }}</option>
+            </select>
+            <select v-model="form.tr_year" class="input-modern-sm">
+              <option v-for="y in years" :key="y" :value="y">Năm {{ y }}</option>
+            </select>
+          </div>
+        </div>
 
-    <!-- ROW 2: Date Selection -->
-    <div class="mb-6 pt-5 border-t border-gray-50">
-      <label class="flex items-center text-xs font-black uppercase tracking-wider text-gray-500 mb-3">
-        <svg class="w-4 h-4 mr-2 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-        </svg>
-        2. Thời gian
-      </label>
-      <div class="grid grid-cols-2 gap-3">
-        <select v-model="form.tr_month" class="input-modern-sm">
-          <option v-for="m in 12" :key="m" :value="m.toString().padStart(2, '0')">Tháng {{ m }}</option>
-        </select>
-        <select v-model="form.tr_year" class="input-modern-sm">
-          <option v-for="y in years" :key="y" :value="y">Năm {{ y }}</option>
-        </select>
+        <!-- 2. CHỈ TIÊU -->
+        <div class="p-4 bg-gray-50/50 rounded-xl border border-gray-100">
+          <label class="flex items-center text-xs font-black uppercase tracking-wider text-gray-400 mb-3 ml-1">
+            <svg class="w-4 h-4 mr-2 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.3" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+            </svg>
+            2. Chọn Chỉ tiêu
+          </label>
+          <select v-model="form.target_id" class="input-modern-sm">
+            <option v-for="pt in PREDEFINED_TARGETS" :key="pt.id" :value="pt.id">
+              {{ pt.name }}
+            </option>
+          </select>
+        </div>
       </div>
-    </div>
 
-    <!-- ROW 3: Product Group -->
-    <div class="mb-6 pt-5 border-t border-gray-50">
-      <label class="flex items-center text-xs font-black uppercase tracking-wider text-gray-500 mb-3">
-        <svg class="w-4 h-4 mr-2 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
-        </svg>
-        3. Nhóm sản phẩm
-      </label>
-      <div class="relative">
-        <select v-model="form.product_group" class="input-modern-sm">
-          <option value="" disabled>-- Chọn nhóm --</option>
-          <option v-for="pg in productGroups" :key="pg" :value="pg">
-            {{ (pg === "Internet truyền hình" || pg === "Internet Truyền hình") ? "Internet" : pg }}
-          </option>
-        </select>
-      </div>
-    </div>
-
-    <!-- ROW 4: Type/Amount -->
-    <div class="mb-6 pt-5 border-t border-gray-50">
-      <label class="flex items-center text-xs font-black uppercase tracking-wider text-gray-500 mb-3">
-        <svg class="w-4 h-4 mr-2 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-        </svg>
-        4. Loại và Giá trị chỉ tiêu
-      </label>
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-        <select v-model="form.type" class="input-modern-sm font-bold">
-          <option value="Thuê Bao">Chỉ tiêu Thuê Bao</option>
-          <option value="Doanh thu">Chỉ tiêu Doanh thu</option>
-        </select>
-        <div class="relative">
-          <input
-            type="text"
-            :value="form.amount === 0 ? '' : form.amount.toLocaleString('vi-VN')"
-            @input="handleAmountInput"
-            class="input-field-sm font-black"
-            placeholder="0"
-          />
-          <div class="absolute right-5 top-1/2 -translate-y-1/2 text-[10px] font-black text-gray-400 uppercase">
-            {{ form.type === "Doanh thu" ? "VNĐ" : "tb" }}
+      <!-- RIGHT COLUMN -->
+      <div class="space-y-6">
+        <!-- 3. GIÁ TRỊ -->
+        <div class="p-4 bg-blue-50/30 rounded-xl border border-blue-100 h-full flex flex-col justify-center">
+          <label class="flex items-center text-xs font-black uppercase tracking-wider text-blue-500 mb-4 ml-1">
+            <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.3" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            3. Giá trị mục tiêu
+          </label>
+          <div class="relative group">
+            <input
+              type="text"
+              :value="form.amount === 0 ? '' : form.amount.toLocaleString('vi-VN')"
+              @input="handleAmountInput"
+              class="w-full pl-6 pr-16 py-4 rounded-2xl border-2 border-white bg-white shadow-inner focus:border-blue-400 focus:ring-4 focus:ring-blue-100 transition-all outline-none font-black text-2xl text-gray-800"
+              placeholder="0"
+            />
+            <div class="absolute right-6 top-1/2 -translate-y-1/2 text-xs font-black text-blue-400 uppercase tracking-widest bg-blue-50 px-2.5 py-1 rounded-lg">
+              {{ getTargetInfo(form.target_id)?.unit }}
+            </div>
+          </div>
+          
+          <div class="mt-4 flex items-center space-x-2 px-1">
+            <span class="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Phân loại:</span>
+            <span class="text-[10px] font-black text-indigo-600 uppercase">{{ getTargetInfo(form.target_id)?.type }}</span>
           </div>
         </div>
       </div>
     </div>
 
-    <div class="flex justify-end pt-5 border-t border-gray-50">
+    <div class="mt-8 pt-6 border-t border-gray-50 flex justify-between items-center">
+      <div class="text-[11px] text-gray-400 italic font-medium">
+        * Lưu ý: Ghi đè nếu chỉ tiêu cho tháng đã tồn tại.
+      </div>
       <button
         @click="onSubmit"
-        :disabled="submitting || !form.product_group"
-        class="px-8 py-3 bg-blue-600 hover:bg-black text-white font-black rounded-xl shadow-lg transition-all flex items-center space-x-2 uppercase tracking-widest text-xs"
+        :disabled="submitting || !form.target_id"
+        class="px-12 py-4 bg-indigo-600 hover:bg-black text-white font-black rounded-2xl shadow-xl shadow-indigo-100 hover:shadow-2xl transition-all flex items-center space-x-3 uppercase tracking-widest text-xs"
       >
-        <span v-if="submitting">Lưu...</span>
-        <span v-else>Lưu mục tiêu</span>
+        <svg v-if="!submitting" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7" />
+        </svg>
+        <span v-if="submitting">Đang lưu kết quả...</span>
+        <span v-else>Cập nhật chỉ tiêu</span>
       </button>
     </div>
   </div>
 </template>
+
+<style scoped>
+.input-modern-sm {
+  @apply w-full px-5 py-3.5 rounded-xl border-2 border-transparent bg-white hover:bg-gray-50 focus:border-indigo-500 focus:bg-white transition-all outline-none appearance-none font-bold text-gray-700 text-sm cursor-pointer shadow-sm;
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%2394a3b8' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
+  background-position: right 1rem center;
+  background-repeat: no-repeat;
+  background-size: 1.25em 1.25em;
+}
+</style>
 
 <style scoped>
 .input-modern-sm {

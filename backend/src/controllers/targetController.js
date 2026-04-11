@@ -17,7 +17,7 @@ export const getTargets = async (req, res) => {
       request.input("month", sql.NVarChar, month.padStart(2, "0"));
     }
     
-    query += " ORDER BY tr_year DESC, tr_month DESC, source_type, product_group";
+    query += " ORDER BY tr_year DESC, tr_month DESC, product_group";
     const result = await request.query(query);
     res.json(result.recordset);
   } catch (err) {
@@ -27,9 +27,9 @@ export const getTargets = async (req, res) => {
 
 export const createTarget = async (req, res) => {
   try {
-    const { tr_year, tr_month, source_type, product_group, type, amount } = req.body;
+    const { tr_year, tr_month, product_group, type, amount } = req.body;
     
-    if (!tr_year || !tr_month || !source_type || !product_group || !type || amount === undefined) {
+    if (!tr_year || !tr_month || !product_group || !type || amount === undefined) {
       return res.status(400).json({ error: "Missing required fields" });
     }
 
@@ -38,7 +38,6 @@ export const createTarget = async (req, res) => {
     
     request.input("tr_year", sql.Int, parseInt(tr_year));
     request.input("tr_month", sql.NVarChar, String(tr_month).padStart(2, "0"));
-    request.input("source_type", sql.NVarChar, source_type);
     request.input("product_group", sql.NVarChar, product_group);
     request.input("type", sql.NVarChar, type);
     request.input("amount", sql.Float, parseFloat(amount));
@@ -48,14 +47,13 @@ export const createTarget = async (req, res) => {
       DELETE FROM targets 
       WHERE tr_year = @tr_year 
       AND tr_month = @tr_month 
-      AND source_type = @source_type 
       AND product_group = @product_group 
       AND type = @type
     `);
 
     await request.query(`
-      INSERT INTO targets (tr_year, tr_month, source_type, product_group, type, amount)
-      VALUES (@tr_year, @tr_month, @source_type, @product_group, @type, @amount)
+      INSERT INTO targets (tr_year, tr_month, product_group, type, amount)
+      VALUES (@tr_year, @tr_month, @product_group, @type, @amount)
     `);
 
     await logActivity(req.user, 'CREATE_TARGET', 'targets', req.body);
@@ -68,13 +66,12 @@ export const createTarget = async (req, res) => {
 
 export const deleteTarget = async (req, res) => {
   try {
-    const { tr_year, tr_month, source_type, product_group, type } = req.query;
+    const { tr_year, tr_month, product_group, type } = req.query;
     const db = await getDb();
     const request = db.request();
     
     request.input("tr_year", sql.Int, tr_year);
     request.input("tr_month", sql.NVarChar, tr_month);
-    request.input("source_type", sql.NVarChar, source_type);
     request.input("product_group", sql.NVarChar, product_group);
     request.input("type", sql.NVarChar, type);
 
@@ -82,7 +79,6 @@ export const deleteTarget = async (req, res) => {
       DELETE FROM targets 
       WHERE tr_year = @tr_year 
       AND tr_month = @tr_month 
-      AND source_type = @source_type 
       AND product_group = @product_group 
       AND type = @type
     `);

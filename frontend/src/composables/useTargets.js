@@ -2,123 +2,58 @@ import { ref, computed, watch, onMounted } from "vue";
 import { useToast } from "./useToast";
 import { targetService, dashboardService } from "../services/apiService";
 
+export const PREDEFINED_TARGETS = [
+  { id: "dealer_revenue", name: "Doanh thu Kênh Đại lý", dbName: "đại lý", type: "Doanh thu", unit: "VNĐ" },
+  { id: "tendoo_revenue", name: "Doanh thu Tendoo", dbName: "DTDV Tendoo", type: "Doanh thu", unit: "VNĐ" },
+  { id: "am_revenue", name: "Doanh thu Kênh AM", dbName: "kênh AM", type: "Doanh thu", unit: "VNĐ" },
+  { id: "gia_han_sub", name: "TB Gia hạn", dbName: "gia hạn", type: "Thuê Bao", unit: "TB" },
+  { id: "mysign_sub", name: "TB Mysign", dbName: "Mysign", type: "Thuê Bao", unit: "TB" },
+  { id: "m2m_sub", name: "TB M2M/IOT", dbName: "M2M/IOT", type: "Thuê Bao", unit: "TB" },
+  { id: "tendoo_sub", name: "TB Tendoo", dbName: "TB Tendoo", type: "Thuê Bao", unit: "TB" },
+  { id: "internet_sub", name: "TB FTTH KHDN (Internet)", dbName: "Internet", type: "Thuê Bao", unit: "TB" },
+  { id: "new_biz_sub", name: "TB DN mới", dbName: "mới thành lập", type: "Thuê Bao", unit: "TB" },
+];
+
 export function useTargets() {
   const toast = useToast();
 
   const years = ref([]);
-  const productGroups = ref([]);
   const allTargets = ref([]);
   const loading = ref(false);
   const submitting = ref(false);
 
   // List Filters
-  const listTypeFilter = ref("Doanh thu");
-  const listYearFilter = ref("all");
-  const listGroupFilter = ref("all");
-
-  const productGroupsCache = {
-    am: null,
-    dealer: null,
-  };
+  const listYearFilter = ref(new Date().getFullYear());
+  const listMonthFilter = ref((new Date().getMonth() + 1).toString().padStart(2, "0"));
 
   const form = ref({
     tr_year: new Date().getFullYear(),
     tr_month: (new Date().getMonth() + 1).toString().padStart(2, "0"),
-    source_type: "dealer",
-    product_group: "",
-    type: "Doanh thu",
+    target_id: PREDEFINED_TARGETS[0].id,
     amount: 0,
   });
 
-  const uniqueGroupsInList = computed(() => {
-    const groups = new Set(allTargets.value.map((t) => t.product_group));
-    return [...groups].sort();
-  });
-
-  const filteredTargets = computed(() => {
-    let list = allTargets.value;
-    list = list.filter((t) => t.type === listTypeFilter.value);
-    if (listYearFilter.value !== "all") {
-      list = list.filter(
-        (t) => t.tr_year.toString() === listYearFilter.value.toString(),
-      );
-    }
-    if (listGroupFilter.value !== "all") {
-      list = list.filter((t) => t.product_group === listGroupFilter.value);
-    }
-    return list.sort((a, b) => {
-      if (a.tr_year !== b.tr_year) return b.tr_year - a.tr_year;
-      return b.tr_month.localeCompare(a.tr_month);
-    });
+  const selectedTargetInfo = computed(() => {
+    return PREDEFINED_TARGETS.find(t => t.id === form.value.target_id);
   });
 
   const fetchYears = async () => {
     try {
       const res = await dashboardService.getYears();
       const dbYears = (res.data || []).map(y => parseInt(y, 10));
-      years.value = dbYears;
+      if (!dbYears.includes(new Date().getFullYear())) {
+        dbYears.push(new Date().getFullYear());
+      }
+      years.value = dbYears.sort((a, b) => b - a);
       if (dbYears.length > 0) {
-        if (!form.value.tr_year || !dbYears.includes(form.value.tr_year)) {
+        if (!form.value.tr_year || !dbYears.includes(parseInt(form.value.tr_year))) {
           form.value.tr_year = dbYears[0];
         }
+        listYearFilter.value = form.value.tr_year;
       }
     } catch (err) {
       console.error("Error fetching years:", err);
-    }
-  };
-
-  const fetchProductGroups = async () => {
-    if (productGroupsCache[form.value.source_type]) {
-      productGroups.value = productGroupsCache[form.value.source_type];
-      updateProductGroupSelection();
-      return;
-    }
-    try {
-      const res = await dashboardService.getProductGroups(
-        form.value.source_type,
-      );
-      // Chuẩn hóa tên nhóm sản phẩm để tránh trùng lặp
-      let groupsFromDb = res.data.map(g => {
-        if (g === 'BHXH') return 'vBHXH';
-        if (g.toLowerCase() === 'internet truyền hình') return 'Internet Truyền hình';
-        return g;
-      });
-      const systemDefaults = {
-        am: [
-          "CA",
-          "EasyBooks",
-          "HDDT",
-          "Internet Truyền hình",
-          "MySign",
-          "Tendoo",
-          "vBHXH",
-          "vContract",
-          "vTracking",
-        ],
-        dealer: ["CA", "HDDT", "vBHXH"],
-      };
-      const combined = [
-        ...new Set([
-          ...groupsFromDb,
-          ...(systemDefaults[form.value.source_type] || []),
-        ]),
-      ]
-        .filter(Boolean)
-        .sort();
-      productGroupsCache[form.value.source_type] = combined;
-      productGroups.value = combined;
-      updateProductGroupSelection();
-    } catch (err) {
-      console.error("Error fetching product groups:", err);
-    }
-  };
-
-  const updateProductGroupSelection = () => {
-    if (
-      productGroups.value.length > 0 &&
-      !productGroups.value.includes(form.value.product_group)
-    ) {
-      form.value.product_group = productGroups.value[0];
+      years.value = [new Date().getFullYear()];
     }
   };
 
@@ -126,11 +61,7 @@ export function useTargets() {
     loading.value = true;
     try {
       const res = await targetService.getTargets();
-      allTargets.value = res.data.map(t => {
-        if (t.product_group === 'BHXH') t.product_group = 'vBHXH';
-        if (t.product_group && t.product_group.toLowerCase() === 'internet truyền hình') t.product_group = 'Internet Truyền hình';
-        return t;
-      });
+      allTargets.value = res.data;
     } catch (err) {
       console.error("Error fetching targets:", err);
     } finally {
@@ -139,13 +70,19 @@ export function useTargets() {
   };
 
   const submitTarget = async () => {
-    if (!form.value.product_group) {
-      toast.error("Vui lòng chọn nhóm sản phẩm");
-      return;
-    }
+    const info = selectedTargetInfo.value;
+    if (!info) return;
+
     submitting.value = true;
     try {
-      await targetService.createTarget(form.value);
+      await targetService.createTarget({
+        tr_year: form.value.tr_year,
+        tr_month: form.value.tr_month,
+        source_type: info.source,
+        product_group: info.dbName,
+        type: info.type,
+        amount: form.value.amount,
+      });
       toast.success("Lưu chỉ tiêu thành công");
       await fetchTargets();
     } catch (err) {
@@ -174,20 +111,8 @@ export function useTargets() {
     }
   };
 
-  watch(
-    () => form.value.source_type,
-    () => fetchProductGroups(),
-  );
-  watch(
-    () => form.value.type,
-    () => {
-      form.value.amount = 0;
-    },
-  );
-
   onMounted(() => {
     fetchYears();
-    fetchProductGroups();
     fetchTargets();
   });
 
@@ -196,13 +121,11 @@ export function useTargets() {
     loading,
     submitting,
     years,
-    productGroups,
     allTargets,
-    listTypeFilter,
     listYearFilter,
-    listGroupFilter,
-    uniqueGroupsInList,
-    filteredTargets,
+    listMonthFilter,
+    selectedTargetInfo,
+    PREDEFINED_TARGETS,
     fetchTargets,
     submitTarget,
     deleteTarget,

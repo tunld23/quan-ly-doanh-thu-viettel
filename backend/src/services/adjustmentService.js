@@ -15,7 +15,9 @@ export const adjustmentService = {
       .request()
       .query(`
         SELECT 
-          adj.*,
+          adj.tr_year, adj.tr_month, adj.tr_day, adj.nhan_vien, adj.product_group, 
+          adj.source_type, adj.adj_quantity, adj.adj_amount, adj.note,
+          FORMAT(adj.created_at, 'yyyy-MM-ddTHH:mm:ss.fff') as created_at,
           sr.total_amount as current_revenue,
           sc.service_count as current_quantity
         FROM adjustments adj
@@ -89,6 +91,7 @@ export const adjustmentService = {
         FROM adjustments
         WHERE tr_year = @year AND tr_month = @month AND tr_day = @day AND product_group = @group AND source_type = @source_type
       ) t
+      WHERE nhan_vien IS NOT NULL AND LOWER(nhan_vien) NOT IN ('admin', 'null', 'không rõ')
       GROUP BY t.nhan_vien
       ORDER BY t.nhan_vien ASC
     `);
@@ -108,6 +111,7 @@ export const adjustmentService = {
           UNION
           SELECT nhan_vien FROM detail WHERE tr_year = @year AND tr_month = @month
         ) AllStaff
+        WHERE nhan_vien IS NOT NULL AND LOWER(nhan_vien) NOT IN ('admin', 'null', 'không rõ')
         ORDER BY nhan_vien ASC
       `);
       return fallbackRes.recordset;

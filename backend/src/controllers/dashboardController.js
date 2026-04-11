@@ -162,11 +162,88 @@ export const getStaffNames = async (req, res) => {
         SELECT nhan_vien, tr_year, source_type FROM summary_report
         UNION ALL
         SELECT nhan_vien, tr_year, source_type FROM staff_service_count
-      ) t ${where} ORDER BY nhan_vien ASC`;
+      ) t 
+      ${where} 
+      AND nhan_vien IS NOT NULL 
+      AND LOWER(nhan_vien) NOT IN ('admin', 'null', 'không rõ')
+      ORDER BY nhan_vien ASC`;
 
     const result = await request.query(query);
     res.json(result.recordset.map((r) => r.nhan_vien));
   } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+export const getSmeDashboardSummary = async (req, res) => {
+  try {
+    const { year, month, day, includeSip = false } = req.query;
+    const db = await getDb();
+    const isIncludeSip = includeSip === "true" || includeSip === true;
+
+    // Helper to make mock requests formatted for dashboardService
+    const mockQueryForData = async (options) => {
+        const recordset = await dashboardService.fetchRawDashboardData(db, options);
+        // We only care about categoryData (for subscribers) & chartData (for totals)
+        // Actually, for SME, we need total revenues for Dealer, AM, and Tendoo!
+        let totalRevenue = 0;
+        let categoryData = {};
+        if (options.viewMode === "subscriber") {
+           const analyticsFilters = { year, primaryYear: parseInt(year), month, day, mode: "month" };
+           const filteredData = analytics.filterDashboardData(recordset, analyticsFilters);
+           categoryData = analytics.aggregateCategoryData(recordset, analyticsFilters, "serviceCount", "product_group");
+        } else {
+           const analyticsFilters = { year, primaryYear: parseInt(year), month, day, mode: "month" };
+           const filteredData = analytics.filterDashboardData(recordset, analyticsFilters);
+           // total revenue
+           totalRevenue = filteredData.reduce((sum, d) => sum + (Number(d.revenue) || 0), 0);
+           // Also, Tendoo specifically needs to parse pieData correctly if we pass `type: "Tendoo"` but it gives totalRevenue already!
+           if (options.type === "Tendoo") {
+              // Usually Tendoo data comes with source=all and product_group='Tendoo'. But wait, in `useSmeDashboard.js`, we did:
+              //   amRes => amRes.data.chartData["withVat"].totalPie
+           }
+        }
+        
+        return {
+           totalRevenue,
+           categoryData
+        };
+    };
+
+    // But it's FAR easier to just replicate what the frontend used:
+    const getDash = async (source, type, viewMode) => {
+       const recordset = await dashboardService.fetchRawDashboardData(db, { type, year, source, month, day, includeSip: isIncludeSip });
+       const analyticsFilters = { year, primaryYear: parseInt(year), month, day, mode: "month" };
+       const metrics = ["withVat", "withoutVat", "vat", "serviceCount"];
+       const filteredData = analytics.filterDashboardData(recordset, analyticsFilters);
+       const obj = { chartData: {}, categoryData: {} };
+       
+       metrics.forEach(metric => {
+         obj.chartData[metric] = analytics.aggregateChartData(filteredData, recordset, analyticsFilters, metric);
+         obj.categoryData[metric] = analytics.aggregateCategoryData(recordset, analyticsFilters, metric, "product_group");
+       });
+       
+       return obj;
+    };
+
+    // Fire them all concurrently on the server
+    const [subscriberRes, compRes, dealerRes, amRes, tendooRes] = await Promise.all([
+      getDash("all", "all", "subscriber"),
+      dashboardService.getPerformanceData(db, { year, month, day, source: "sme", includeSip: isIncludeSip }),
+      getDash("dealer", "all", "actual"),
+      getDash("am", "all", "actual"),
+      getDash("all", "Tendoo", "actual")
+    ]);
+
+    res.json({
+      subscriberData: subscriberRes,
+      comparisonData: compRes,
+      dealerData: dealerRes,
+      amData: amRes,
+      tendooData: tendooRes
+    });
+  } catch (err) {
+    console.error("SME Summary Error:", err);
     res.status(500).json({ error: err.message });
   }
 };
