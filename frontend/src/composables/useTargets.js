@@ -3,15 +3,69 @@ import { useToast } from "./useToast";
 import { targetService, dashboardService } from "../services/apiService";
 
 export const PREDEFINED_TARGETS = [
-  { id: "dealer_revenue", name: "Doanh thu Kênh Đại lý", dbName: "đại lý", type: "Doanh thu", unit: "VNĐ" },
-  { id: "tendoo_revenue", name: "Doanh thu Tendoo", dbName: "DTDV Tendoo", type: "Doanh thu", unit: "VNĐ" },
-  { id: "am_revenue", name: "Doanh thu Kênh AM", dbName: "kênh AM", type: "Doanh thu", unit: "VNĐ" },
-  { id: "gia_han_sub", name: "TB Gia hạn", dbName: "gia hạn", type: "Thuê Bao", unit: "TB" },
-  { id: "mysign_sub", name: "TB Mysign", dbName: "Mysign", type: "Thuê Bao", unit: "TB" },
-  { id: "m2m_sub", name: "TB M2M/IOT", dbName: "M2M/IOT", type: "Thuê Bao", unit: "TB" },
-  { id: "tendoo_sub", name: "TB Tendoo", dbName: "TB Tendoo", type: "Thuê Bao", unit: "TB" },
-  { id: "internet_sub", name: "TB FTTH KHDN (Internet)", dbName: "Internet", type: "Thuê Bao", unit: "TB" },
-  { id: "new_biz_sub", name: "TB DN mới", dbName: "mới thành lập", type: "Thuê Bao", unit: "TB" },
+  {
+    id: "dealer_revenue",
+    name: "Doanh thu Kênh Đại lý",
+    dbName: "đại lý",
+    type: "Doanh thu",
+    unit: "VNĐ",
+  },
+  {
+    id: "tendoo_revenue",
+    name: "Doanh thu Tendoo",
+    dbName: "DTDV Tendoo",
+    type: "Doanh thu",
+    unit: "VNĐ",
+  },
+  {
+    id: "am_revenue",
+    name: "Doanh thu Kênh AM",
+    dbName: "kênh AM",
+    type: "Doanh thu",
+    unit: "VNĐ",
+  },
+  {
+    id: "gia_han_sub",
+    name: "TB Gia hạn",
+    dbName: "gia hạn",
+    type: "Thuê Bao",
+    unit: "TB",
+  },
+  {
+    id: "mysign_sub",
+    name: "TB Mysign",
+    dbName: "Mysign",
+    type: "Thuê Bao",
+    unit: "TB",
+  },
+  {
+    id: "m2m_sub",
+    name: "TB M2M/IOT",
+    dbName: "M2M/IOT",
+    type: "Thuê Bao",
+    unit: "TB",
+  },
+  {
+    id: "tendoo_sub",
+    name: "TB Tendoo",
+    dbName: "Tendoo",
+    type: "Thuê Bao",
+    unit: "TB",
+  },
+  {
+    id: "internet_sub",
+    name: "TB FTTH KHDN (Internet)",
+    dbName: "Internet",
+    type: "Thuê Bao",
+    unit: "TB",
+  },
+  {
+    id: "new_biz_sub",
+    name: "TB DN mới",
+    dbName: "mới thành lập",
+    type: "Thuê Bao",
+    unit: "TB",
+  },
 ];
 
 export function useTargets() {
@@ -24,7 +78,9 @@ export function useTargets() {
 
   // List Filters
   const listYearFilter = ref(new Date().getFullYear());
-  const listMonthFilter = ref((new Date().getMonth() + 1).toString().padStart(2, "0"));
+  const listMonthFilter = ref(
+    (new Date().getMonth() + 1).toString().padStart(2, "0"),
+  );
 
   const form = ref({
     tr_year: new Date().getFullYear(),
@@ -34,19 +90,22 @@ export function useTargets() {
   });
 
   const selectedTargetInfo = computed(() => {
-    return PREDEFINED_TARGETS.find(t => t.id === form.value.target_id);
+    return PREDEFINED_TARGETS.find((t) => t.id === form.value.target_id);
   });
 
   const fetchYears = async () => {
     try {
       const res = await dashboardService.getYears();
-      const dbYears = (res.data || []).map(y => parseInt(y, 10));
+      const dbYears = (res.data || []).map((y) => parseInt(y, 10));
       if (!dbYears.includes(new Date().getFullYear())) {
         dbYears.push(new Date().getFullYear());
       }
       years.value = dbYears.sort((a, b) => b - a);
       if (dbYears.length > 0) {
-        if (!form.value.tr_year || !dbYears.includes(parseInt(form.value.tr_year))) {
+        if (
+          !form.value.tr_year ||
+          !dbYears.includes(parseInt(form.value.tr_year))
+        ) {
           form.value.tr_year = dbYears[0];
         }
         listYearFilter.value = form.value.tr_year;

@@ -269,10 +269,9 @@ const calcPercent = (v, total) => {
             <div class="flex items-center gap-3">
               <span class="text-[12px] font-[900] text-slate-700">
                 {{
-                  (Math.abs(comp.current - comp.prev) / 1000000).toLocaleString(
-                    "en-US",
-                    { maximumFractionDigits: 1 },
-                  )
+                  (comp.prev / 1000000).toLocaleString("en-US", {
+                    maximumFractionDigits: 1,
+                  })
                 }}
                 <span class="text-[8px] opacity-40">Tr.đ</span>
               </span>

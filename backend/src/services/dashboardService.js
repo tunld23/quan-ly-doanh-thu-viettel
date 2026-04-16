@@ -4,7 +4,10 @@ import sql from "mssql/msnodesqlv8.js";
 /**
  * Fetch raw dashboard data from various sources
  */
-export async function fetchRawDashboardData(db, { type, year, source, month, day, includeSip }) {
+export async function fetchRawDashboardData(
+  db,
+  { type, year, source, month, day, includeSip },
+) {
   const request = db.request();
   let where = "WHERE 1=1";
 
@@ -22,7 +25,9 @@ export async function fetchRawDashboardData(db, { type, year, source, month, day
     request.input("source", source);
   }
   if (year) {
-    const years = String(year).split(",").map((y) => parseInt(y.trim()));
+    const years = String(year)
+      .split(",")
+      .map((y) => parseInt(y.trim()));
     if (years.length > 1) {
       where += ` AND tr_year IN (${years.map((_, i) => `@y${i}`).join(",")})`;
       years.forEach((y, i) => request.input(`y${i}`, y));
@@ -35,8 +40,8 @@ export async function fetchRawDashboardData(db, { type, year, source, month, day
   if (month && day) {
     const paddedMonth = String(month).padStart(2, "0");
     const paddedDay = String(day).padStart(2, "0");
-    where +=
-      " AND (tr_month < @m_mtd OR (tr_month = @m_mtd AND tr_day <= @d_mtd))";
+    // Sửa lỗi: Chuyển từ tính Year-to-Date sang Month-to-Date cho dashboard SME
+    where += " AND tr_month = @m_mtd AND tr_day <= @d_mtd";
     request.input("m_mtd", paddedMonth);
     request.input("d_mtd", paddedDay);
   } else if (month) {
@@ -73,7 +78,10 @@ export async function fetchRawDashboardData(db, { type, year, source, month, day
 /**
  * Calculate target achievement
  */
-export async function calculateTargetAchievement(db, { type, source, year, month, quarter, mode }) {
+export async function calculateTargetAchievement(
+  db,
+  { type, source, year, month, quarter, mode },
+) {
   let years = [];
   if (year && year !== "all") {
     years = String(year)
@@ -213,15 +221,37 @@ export async function calculateTargetAchievement(db, { type, source, year, month
 
     result.labels.forEach((group) => {
       const groupLower = (group || "").toLowerCase().trim();
-      const actual = actualRows.find((a) => (a.product_group || "").toLowerCase().trim() === groupLower) || { actual_revenue: 0, actual_subs: 0 };
-      const revTarget = targetRows.find((t) => (t.product_group || "").toLowerCase().trim() === groupLower && ((t.type || "").toLowerCase().trim().includes("doanh thu")))?.target_amount || 0;
-      const subTarget = targetRows.find((t) => (t.product_group || "").toLowerCase().trim() === groupLower && ((t.type || "").toLowerCase().trim().includes("thuê bao")))?.target_amount || 0;
+      const actual = actualRows.find(
+        (a) => (a.product_group || "").toLowerCase().trim() === groupLower,
+      ) || { actual_revenue: 0, actual_subs: 0 };
+      const revTarget =
+        targetRows.find(
+          (t) =>
+            (t.product_group || "").toLowerCase().trim() === groupLower &&
+            (t.type || "").toLowerCase().trim().includes("doanh thu"),
+        )?.target_amount || 0;
+      const subTarget =
+        targetRows.find(
+          (t) =>
+            (t.product_group || "").toLowerCase().trim() === groupLower &&
+            (t.type || "").toLowerCase().trim().includes("thuê bao"),
+        )?.target_amount || 0;
 
-      const revRate = Number(revTarget) > 0 ? (Number(actual.actual_revenue) / Number(revTarget)) * 100 : 0;
-      const subRate = Number(subTarget) > 0 ? (Number(actual.actual_subs) / Number(subTarget)) * 100 : 0;
+      const revRate =
+        Number(revTarget) > 0
+          ? (Number(actual.actual_revenue) / Number(revTarget)) * 100
+          : 0;
+      const subRate =
+        Number(subTarget) > 0
+          ? (Number(actual.actual_subs) / Number(subTarget)) * 100
+          : 0;
 
-      result.yearsData[targetYear].revenueRates.push(parseFloat(Number(revRate).toFixed(2)));
-      result.yearsData[targetYear].subRates.push(parseFloat(Number(subRate).toFixed(2)));
+      result.yearsData[targetYear].revenueRates.push(
+        parseFloat(Number(revRate).toFixed(2)),
+      );
+      result.yearsData[targetYear].subRates.push(
+        parseFloat(Number(subRate).toFixed(2)),
+      );
       result.yearsData[targetYear].revenueDetails.push({
         actual: Number(actual.actual_revenue || 0),
         target: Number(revTarget || 0),
@@ -238,7 +268,10 @@ export async function calculateTargetAchievement(db, { type, source, year, month
 /**
  * Populate filter metadata
  */
-export async function getFilterMetadata(db, { type, source, year, month, quarter, mode, viewMode, includeSip }) {
+export async function getFilterMetadata(
+  db,
+  { type, source, year, month, quarter, mode, viewMode, includeSip },
+) {
   const response = {};
   const groupReq = db.request();
   let whereActual = ["product_group IS NOT NULL"];
@@ -258,10 +291,16 @@ export async function getFilterMetadata(db, { type, source, year, month, quarter
   }
 
   if (year) {
-    const years = String(year).split(",").map((y) => parseInt(y.trim()));
+    const years = String(year)
+      .split(",")
+      .map((y) => parseInt(y.trim()));
     if (years.length > 1) {
-      whereActual.push(`tr_year IN (${years.map((_, i) => `@gy${i}`).join(",")})`);
-      whereTarget.push(`tr_year IN (${years.map((_, i) => `@gy${i}`).join(",")})`);
+      whereActual.push(
+        `tr_year IN (${years.map((_, i) => `@gy${i}`).join(",")})`,
+      );
+      whereTarget.push(
+        `tr_year IN (${years.map((_, i) => `@gy${i}`).join(",")})`,
+      );
       years.forEach((y, i) => groupReq.input(`gy${i}`, y));
     } else {
       whereActual.push("tr_year = @year");
@@ -316,29 +355,48 @@ export async function getFilterMetadata(db, { type, source, year, month, quarter
   }
 
   const groupRes = await groupReq.query(groupQuery);
-  const categories = [...new Set(groupRes.recordset.map((r) => r.product_group))].sort();
+  const categories = [
+    ...new Set(groupRes.recordset.map((r) => r.product_group)),
+  ].sort();
   response.productGroups = ["all", ...categories];
 
   // Available Years
   let yearQuery = "SELECT DISTINCT tr_year FROM summary_report WHERE 1=1";
   const yearReq = db.request();
-  if (type !== "all") { yearQuery += " AND product_group = @type"; yearReq.input("type", type); }
-  if (source !== "all") { yearQuery += " AND source_type = @source"; yearReq.input("source", source); }
+  if (type !== "all") {
+    yearQuery += " AND product_group = @type";
+    yearReq.input("type", type);
+  }
+  if (source !== "all") {
+    yearQuery += " AND source_type = @source";
+    yearReq.input("source", source);
+  }
   const yearRes = await yearReq.query(yearQuery + " ORDER BY tr_year DESC");
   response.availableYears = yearRes.recordset.map((r) => String(r.tr_year));
 
   // Available Months
   let monthQuery = "SELECT DISTINCT tr_month FROM summary_report WHERE 1=1";
   const monthReq = db.request();
-  if (type !== "all") { monthQuery += " AND LOWER(TRIM(product_group)) = LOWER(TRIM(@type))"; monthReq.input("type", type); }
-  if (source !== "all") { monthQuery += " AND LOWER(TRIM(source_type)) = LOWER(TRIM(@source))"; monthReq.input("source", source); }
-  if (year && !String(year).includes(",")) { monthQuery += " AND tr_year = @year"; monthReq.input("year", parseInt(year)); }
+  if (type !== "all") {
+    monthQuery += " AND LOWER(TRIM(product_group)) = LOWER(TRIM(@type))";
+    monthReq.input("type", type);
+  }
+  if (source !== "all") {
+    monthQuery += " AND LOWER(TRIM(source_type)) = LOWER(TRIM(@source))";
+    monthReq.input("source", source);
+  }
+  if (year && !String(year).includes(",")) {
+    monthQuery += " AND tr_year = @year";
+    monthReq.input("year", parseInt(year));
+  }
   const monthRes = await monthReq.query(monthQuery + " ORDER BY tr_month ASC");
   const months = monthRes.recordset.map((r) => String(parseInt(r.tr_month)));
   response.availableMonths = months;
 
   const quarters = new Set();
-  months.forEach((m) => quarters.add(String(Math.floor((parseInt(m) - 1) / 3) + 1)));
+  months.forEach((m) =>
+    quarters.add(String(Math.floor((parseInt(m) - 1) / 3) + 1)),
+  );
   response.availableQuarters = Array.from(quarters).sort();
 
   return response;
@@ -347,7 +405,10 @@ export async function getFilterMetadata(db, { type, source, year, month, quarter
 /**
  * Get performance comparisons
  */
-export async function getPerformanceData(db, { year, month, day, source, includeSip }) {
+export async function getPerformanceData(
+  db,
+  { year, month, day, source, includeSip },
+) {
   const y = parseInt(year);
   const m = parseInt(month);
   const d = parseInt(day);
@@ -376,9 +437,10 @@ export async function getPerformanceData(db, { year, month, day, source, include
       filter += " AND LOWER(TRIM(source_type)) = LOWER(TRIM(@source))";
       req.input("source", source);
     }
-    
+
     if (includeSip === "false" || includeSip === false) {
-      filter += " AND (source_type <> 'dealer' OR LOWER(TRIM(product_group)) IN (LOWER(N'CA'), LOWER(N'BHXH'), LOWER(N'HDDT')))";
+      filter +=
+        " AND (source_type <> 'dealer' OR LOWER(TRIM(product_group)) IN (LOWER(N'CA'), LOWER(N'BHXH'), LOWER(N'HDDT')))";
       filter += " AND LOWER(TRIM(product_group)) <> LOWER(N'Doanh Thu Thêm')";
     }
     return filter;
@@ -406,19 +468,20 @@ export async function getPerformanceData(db, { year, month, day, source, include
     return res.recordset[0]?.revenue || 0;
   };
 
-  const [todayVal, yesterdayVal, currentMtd, lastMonthMtd, lastYearMtd] = await Promise.all([
-    getDaySum(y, monthStr, todayStr),
-    getDaySum(yesYear, yesMonthStr, yesDayStr),
-    getMtdSum(y, monthStr, todayStr),
-    getMtdSum(lmYear, lmMonthStr, todayStr),
-    getMtdSum(lastYear, monthStr, todayStr),
-  ]);
+  const [todayVal, yesterdayVal, currentMtd, lastMonthMtd, lastYearMtd] =
+    await Promise.all([
+      getDaySum(y, monthStr, todayStr),
+      getDaySum(yesYear, yesMonthStr, yesDayStr),
+      getMtdSum(y, monthStr, todayStr),
+      getMtdSum(lmYear, lmMonthStr, todayStr),
+      getMtdSum(lastYear, monthStr, todayStr),
+    ]);
 
   return {
-    today: todayVal, 
+    today: todayVal,
     todayMtd: currentMtd,
     yesterday: yesterdayVal,
     lastMonth: lastMonthMtd,
-    lastYear: lastYearMtd
+    lastYear: lastYearMtd,
   };
 }

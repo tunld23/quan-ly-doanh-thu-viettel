@@ -15,7 +15,7 @@ import {
   getProductGroups,
   getProductYears,
 } from "../controllers/productController.js";
-import { importSales } from "../controllers/salesController.js";
+import { importSales, importTendooExpiredIds } from "../controllers/salesController.js";
 import {
   getAdjustments,
   createAdjustment,
@@ -63,6 +63,7 @@ router.delete("/targets", deleteTarget);
 // New Product Import Route
 router.post("/products/import", upload.single("file"), importProducts);
 router.post("/sales/import", upload.single("file"), importSales);
+router.post("/sales/import-expired-ids", upload.single("file"), importTendooExpiredIds);
 
 // Settings
 router.get("/settings/:key", getSetting);

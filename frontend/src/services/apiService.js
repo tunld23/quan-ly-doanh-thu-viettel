@@ -35,6 +35,10 @@ export const importService = {
     api.post("/sales/import", formData, {
       headers: { "Content-Type": "multipart/form-data" },
     }),
+  importTendooExpiredIds: (formData) =>
+    api.post("/sales/import-expired-ids", formData, {
+      headers: { "Content-Type": "multipart/form-data" },
+    }),
 };
 
 export const userService = {

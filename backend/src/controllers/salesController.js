@@ -16,14 +16,32 @@ export const importSales = async (req, res) => {
         .json({ error: "Product Group (type) is required" });
     }
 
+    const effectiveGroup = type;
+
+    let extraOptions = {};
+    if (type === "Tendoo") {
+      const dbRead = await getDb();
+      const expiredResult = await dbRead
+        .request()
+        .query("SELECT id_cua_hang FROM tendoo_expired_ids");
+      extraOptions.expiredIds = new Set(
+        expiredResult.recordset.map((r) => r.id_cua_hang),
+      );
+    }
+
     const buffer = req.file.buffer;
-    const { data: sData, summary } = await processSalesImportExcel(buffer, type, source);
+    const { data: sData, summary } = await processSalesImportExcel(
+      buffer,
+      type,
+      source,
+      extraOptions,
+    );
 
     // Auto-detect months and years from data if not provided
     let detectedMonths = months
       ? months.split(",").map((m) => m.trim().padStart(2, "0"))
-      : [...new Set(sData.map((s) => s.thang))].filter(m => m !== null);
-    
+      : [...new Set(sData.map((s) => s.thang))].filter((m) => m !== null);
+
     // Fallback to current month if no month detected
     if (detectedMonths.length === 0) {
       detectedMonths = [String(new Date().getMonth() + 1).padStart(2, "0")];
@@ -31,7 +49,7 @@ export const importSales = async (req, res) => {
 
     let detectedYears = year
       ? [parseInt(year)]
-      : [...new Set(sData.map((s) => s.nam))].filter(y => y !== null);
+      : [...new Set(sData.map((s) => s.nam))].filter((y) => y !== null);
 
     // Fallback to current year if no year detected
     if (detectedYears.length === 0) {
@@ -55,6 +73,16 @@ export const importSales = async (req, res) => {
       IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('detail') AND name = 'source_type')
       BEGIN
         ALTER TABLE detail ADD source_type NVARCHAR(50) NULL;
+      END
+      IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('detail') AND name = 'extra_data')
+      BEGIN
+        ALTER TABLE detail ADD extra_data NVARCHAR(MAX) NULL;
+      END
+
+      -- Xóa bỏ cột tendoo_type thừa theo yêu cầu
+      IF EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('detail') AND name = 'tendoo_type')
+      BEGIN
+        ALTER TABLE detail DROP COLUMN tendoo_type;
       END
     `);
 
@@ -82,7 +110,7 @@ export const importSales = async (req, res) => {
     try {
       // 1. Delete old sales for the specified months, group AND source
       const deleteRequest = new sql.Request(transaction);
-      deleteRequest.input("group", sql.NVarChar, type);
+      deleteRequest.input("group", sql.NVarChar, effectiveGroup);
       deleteRequest.input("source", sql.NVarChar, source);
 
       const monthParams = detectedMonths.map((m, i) => `@m${i}`);
@@ -114,97 +142,57 @@ export const importSales = async (req, res) => {
       table.columns.add("amount", sql.Float, { nullable: true });
       table.columns.add("product_group", sql.NVarChar(255), { nullable: true });
       table.columns.add("source_type", sql.NVarChar(50), { nullable: true });
+      table.columns.add("extra_data", sql.NVarChar(sql.MAX), {
+        nullable: true,
+      });
 
       // Extract month and year from detected values for fallback if sData doesn't have them
       const fallbackMonth = detectedMonths[0]; // Use the first month from detection or request
       const fallbackYear = detectedYears[0];
 
+      let rowIndex = 0;
       for (const s of sData) {
+        rowIndex++;
+        let eData = {};
+        if (s.extra_data) {
+          try {
+            eData = JSON.parse(s.extra_data);
+          } catch (e) {}
+        }
+        eData._rn = rowIndex;
+
         table.rows.add(
-          parseInt(s.nam || fallbackYear), 
-          s.thang || fallbackMonth, 
+          parseInt(s.nam || fallbackYear),
+          s.thang || fallbackMonth,
           s.ngay || "01",
           s.nhan_vien,
           s.ma_hang,
           s.mat_hang,
-          s.amount || 1, 
-          type, 
+          s.amount || 1,
+          effectiveGroup,
           source,
+          JSON.stringify(eData),
         );
       }
 
       if (table.rows.length > 0) {
         const bulkRequest = new sql.Request(transaction);
         await bulkRequest.bulk(table);
-        
-        // Special logic for Tendoo: Add products to product table automatically
-        if (type === "Tendoo") {
-           // Use a temporary table or MERGE to insert products without duplicates
-           // For simplicity and performance, we'll collect unique products first
-           const uniqueProducts = [];
-           const seenProducts = new Set();
-           
-           for (const s of sData) {
-              const y = parseInt(s.nam || fallbackYear);
-              const m = s.thang || fallbackMonth;
-              const d = s.ngay || "01";
-              const key = `${y}|${m}|${d}|${s.ma_hang}|${s.mat_hang}|${source}`;
-              if (!seenProducts.has(key) && s.price !== undefined) {
-                 seenProducts.add(key);
-                 uniqueProducts.push({
-                    tr_year: y,
-                    tr_month: m,
-                    tr_day: d,
-                    ma_hang: s.ma_hang,
-                    mat_hang: s.mat_hang,
-                    without_vat: s.price,
-                    source_type: source,
-                    nhan_vien: "Tendoo" // Or s.nhan_vien if desired
-                 });
-              }
-           }
-           
-           if (uniqueProducts.length > 0) {
-              // We'll use a MERGE statement to avoid PK issues
-              // To do this via bulk, we'd need a temp table. 
-              // For small amounts, we can generate a query or use multiple requests.
-              // Given the potential size, let's use a simple per-item insert (or a batch)
-              for (const p of uniqueProducts) {
-                const pReq = new sql.Request(transaction);
-                pReq.input("y", sql.Int, p.tr_year);
-                pReq.input("m", sql.NVarChar, p.tr_month);
-                pReq.input("d", sql.NVarChar, p.tr_day);
-                pReq.input("ma", sql.NVarChar, p.ma_hang);
-                pReq.input("mat", sql.NVarChar, p.mat_hang);
-                pReq.input("price", sql.Float, p.without_vat);
-                pReq.input("src", sql.NVarChar, p.source_type);
-                pReq.input("emp", sql.NVarChar, p.nhan_vien);
-                
-                await pReq.query(`
-                  IF NOT EXISTS (SELECT 1 FROM product WHERE tr_year = @y AND tr_month = @m AND tr_day = @d AND ma_hang = @ma AND mat_hang = @mat AND source_type = @src)
-                  BEGIN
-                    INSERT INTO product (tr_year, tr_month, tr_day, ma_hang, mat_hang, nhan_vien, without_vat, with_vat, vat, source_type, product_group)
-                    VALUES (@y, @m, @d, @ma, @mat, @emp, @price, @price, 0, @src, 'Tendoo')
-                  END
-                  ELSE
-                  BEGIN
-                    UPDATE product SET without_vat = @price, with_vat = @price, vat = 0, nhan_vien = @emp
-                    WHERE tr_year = @y AND tr_month = @m AND tr_day = @d AND ma_hang = @ma AND mat_hang = @mat AND source_type = @src
-                  END
-                `);
-              }
-           }
-        }
       }
 
       await transaction.commit();
 
-      await logActivity(req.user, 'IMPORT_SALES', 'detail', `Imported ${source.toUpperCase()} sales for ${type} (${sData.length} records)`);
+      await logActivity(
+        req.user,
+        "IMPORT_SALES",
+        "detail",
+        `Imported ${source.toUpperCase()} sales for ${effectiveGroup} (${sData.length} records)`,
+      );
 
       await updateSummaryReport();
 
       res.json({
-        message: `Successfully imported ${source.toUpperCase()} sales for ${type}`,
+        message: `Successfully imported ${source.toUpperCase()} sales for ${effectiveGroup}`,
         summary,
       });
     } catch (err) {
@@ -217,7 +205,7 @@ export const importSales = async (req, res) => {
       }
       // Log the original error so we can see what actually failed
       console.error("Original Import Error:", err);
-      throw err; 
+      throw err;
     }
   } catch (err) {
     console.error("Import Sales Error:", err);
@@ -225,5 +213,73 @@ export const importSales = async (req, res) => {
       error: err.isValidationError ? err.message : "Sales import failed",
       details: err.message,
     });
+  }
+};
+
+export const importTendooExpiredIds = async (req, res) => {
+  try {
+    if (!req.file) return res.status(400).json({ error: "No file uploaded" });
+    const buffer = req.file.buffer;
+    const { data } = await processSalesImportExcel(
+      buffer,
+      "Tendoo_Expired_Import",
+    );
+
+    if (!data || data.length === 0) {
+      return res
+        .status(400)
+        .json({ error: "File không có dữ liệu ID hợp lệ (kiểm tra cột B)" });
+    }
+
+    const db = await getDb();
+    const transaction = new sql.Transaction(db);
+    await transaction.begin();
+
+    try {
+      // 1. Clear old IDs (Thay thế tập cũ bằng tập mới)
+      await transaction.request().query("DELETE FROM tendoo_expired_ids");
+
+      // 2. Bulk insert new IDs
+      const table = new sql.Table("tendoo_expired_ids");
+      table.columns.add("id_cua_hang", sql.NVarChar(255), { nullable: false });
+
+      const uniqueIds = new Set();
+      for (const item of data) {
+        if (item.shopId && !uniqueIds.has(item.shopId)) {
+          uniqueIds.add(item.shopId);
+          table.rows.add(item.shopId);
+        }
+      }
+
+      await new sql.Request(transaction).bulk(table);
+      await transaction.commit();
+
+      const dbRecalc = await getDb();
+      //Migration: Đồng nhất tên 'Tendoo' cho đồng bộ với logic mới
+      await dbRecalc.request().query(`
+        UPDATE detail SET product_group = 'Tendoo' WHERE product_group = 'TB Tendoo' OR product_group = N'Tendoo';
+        UPDATE product SET product_group = 'Tendoo' WHERE product_group = 'DTDV Tendoo' OR product_group = N'Tendoo' OR product_group = 'TB Tendoo';
+      `);
+
+      await updateSummaryReport();
+
+      await logActivity(
+        req.user,
+        "IMPORT_EXPIRED_IDS",
+        "tendoo_expired_ids",
+        `Imported ${data.length} expired IDs and auto-recalculated`,
+      );
+      res.json({
+        message: `Đã nhập thành công ${data.length} ID và tự động cập nhật lại Dashboard.`,
+      });
+    } catch (e) {
+      if (transaction.active) await transaction.rollback();
+      throw e;
+    }
+  } catch (err) {
+    console.error(err);
+    res
+      .status(500)
+      .json({ error: "Lỗi khi nhập danh sách ID hết hạn: " + err.message });
   }
 };

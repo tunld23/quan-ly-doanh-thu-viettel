@@ -28,17 +28,18 @@ export function useSmeDashboard() {
     try {
       const res = await targetService.getTargets({ year, month });
       const targets = res.data;
-      
+
       kpis.value.forEach((kpi, index) => {
         // Map KPI index to PREDEFINED_TARGETS
         const pt = PREDEFINED_TARGETS[index];
         if (!pt) return;
 
-        const found = targets.find(t => 
-          t.product_group === pt.dbName &&
-          t.type === pt.type &&
-          parseInt(t.tr_year) === parseInt(year) &&
-          t.tr_month === String(month).padStart(2, "0")
+        const found = targets.find(
+          (t) =>
+            t.product_group === pt.dbName &&
+            t.type === pt.type &&
+            parseInt(t.tr_year) === parseInt(year) &&
+            t.tr_month === String(month).padStart(2, "0"),
         );
 
         if (found) {
@@ -66,14 +67,24 @@ export function useSmeDashboard() {
 
       await fetchTargets(year, month);
 
-      const summaryRes = await dashboardService.getSmeDashboardSummary({ 
-        year, month, day, includeSip: true 
+      const summaryRes = await dashboardService.getSmeDashboardSummary({
+        year,
+        month,
+        day,
+        includeSip: true,
       });
-      
-      const { subscriberData, comparisonData, dealerData, amData, tendooData } = summaryRes.data;
+
+      const { subscriberData, comparisonData, dealerData, amData, tendooData } =
+        summaryRes.data;
 
       console.log("Performance Comparisons:", comparisonData);
-      comparisons.value = comparisonData || { today: 0, yesterday: 0, lastMonth: 0, lastYear: 0, todayMtd: 0 };
+      comparisons.value = comparisonData || {
+        today: 0,
+        yesterday: 0,
+        lastMonth: 0,
+        lastYear: 0,
+        todayMtd: 0,
+      };
 
       const getVal = (resData, field = "withoutVat") => {
         const pie = resData?.categoryData?.[field]?.pieData || [];
@@ -88,8 +99,7 @@ export function useSmeDashboard() {
       );
       kpis.value[2].actual = parseFloat((getVal(amData) / 1000000).toFixed(2));
 
-      const subPie =
-        subscriberData?.categoryData?.serviceCount?.pieData || [];
+      const subPie = subscriberData?.categoryData?.serviceCount?.pieData || [];
       const updateSub = (name, index) => {
         const found = subPie.find((p) =>
           p.name.toLowerCase().includes(name.toLowerCase()),

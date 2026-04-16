@@ -1,4 +1,8 @@
 import * as xlsx from "xlsx";
+import path from "path";
+import fs from "fs";
+import sql from "mssql/msnodesqlv8.js";
+import { getDb } from "../config/db.js";
 
 /**
  * CONFIGURATION - Centralizing all Excel structure rules
@@ -68,21 +72,21 @@ const EXCEL_CONFIGS = {
       // Map Hierarchy Code in AP (index 41) to Group Name
       const hCode = String(row[41] || "").trim();
       const hierarchyMap = {
-        "118111710121": "CA",
-        "118111810121": "CA",
-        "118111710124": "CA",
-        "118113310121": "BHXH",
-        "118112210124": "HDDT",
-        "118112210729": "HDDT",
-        "118112410729": "HDDT",
-        "118114310121": "vTracking",
-        "118111910121": "CAM10(DTDV)",
-        "118124010121": "Easybooks",
-        "118125910121": "Tendoo",
-        "118112510121": "vContract",
-        "129120110806": "vContract",
-        "118112010121": "Mysign",
-        "1": "M2M/IOT",
+        118111710121: "CA",
+        118111810121: "CA",
+        118111710124: "CA",
+        118113310121: "BHXH",
+        118112210124: "HDDT",
+        118112210729: "HDDT",
+        118112410729: "HDDT",
+        118114310121: "vTracking",
+        118111910121: "CAM10(DTDV)",
+        118124010121: "Easybooks",
+        118125910121: "Tendoo",
+        118112510121: "vContract",
+        129120110806: "vContract",
+        118112010121: "Mysign",
+        1: "M2M/IOT",
       };
 
       const rawUser = String(row[27] || "Không rõ").trim();
@@ -204,29 +208,63 @@ const EXCEL_CONFIGS = {
         "thanh_tien",
       ],
       parse: (row) => {
-        // Cột AI (index 34) chỉ lấy "HNI"
-        const tinh = String(row[34] || "")
-          .trim()
-          .toUpperCase();
-        if (tinh !== "HNI") {
-          return {
-            rawDate: null,
-            rawUser: "invalid_tinh",
-            rawMa: null,
-            rawMat: null,
-          };
+        // HNI filter on column H (index 7)
+        const rawUser = String(row[7] || "Không rõ").trim();
+        if (!rawUser.toUpperCase().includes("HNI")) {
+          return { rawUser: "skip" };
         }
+
+        const price =
+          parseFloat(String(row[11] || 0).replace(/[^\d.–—.-]/g, "")) || 0; // Cột L
+        const loaiYeuCau = String(row[18] || "").trim(); // Cột S
+        const loaiGiaHan = String(row[33] || "").trim(); // Cột AH
+        const ghiNhan = String(row[32] || "").trim(); // Cột AG
+        const subscriberId = String(row[22] || "").trim(); // Cột W (Mã thuê bao/W)
+        const packageName = String(row[9] || "")
+          .trim()
+          .toLowerCase(); // Cột J
+
+        // Logic check for categories
+        // Nhóm 1 (Col 4) & Nhóm 2 (Col 5) conditions
+        // User's exact strings from formula
+        const isCat1ConditionsMatch =
+          loaiGiaHan.trim() === "Gia hạn lần đầu từ gói miễn phí";
+        const isCat2ConditionsMatch = loaiYeuCau.trim() === "Bán mới";
+        const isGiaHan = loaiYeuCau.trim() === "Gia hạn";
+
+        const shopId = subscriberId;
+
+        const extraData = {
+          price,
+          loai_tac_dong: loaiYeuCau,
+          gia_han_lan_dau: loaiGiaHan,
+          ghi_nhan: ghiNhan,
+          shop_id: shopId,
+        };
+
         return {
-          rawDate: row[1], // Cột B
-          rawUser: row[7], // Cột H
-          rawMa: String(row[9] || "")
-            .trim()
-            .toLowerCase(), // Cột J
-          rawMat: String(row[9] || "")
-            .trim()
-            .toLowerCase(), // Cột J
-          price:
-            parseFloat(String(row[11] || 0).replace(/[^\d.–—.-]/g, "")) || 0, // Cột L (Including various dashes)
+          rawDate: row[1],
+          rawUser: rawUser,
+          rawMa: packageName,
+          rawMat: packageName,
+          price: price,
+          shopId: shopId,
+          productGroup: "Tendoo", // Explicitly set for detail mapping
+          extraData,
+        };
+      },
+    },
+    Tendoo_Expired_Import: {
+      requiredMarkers: ["ID"], // Chỉ cần có chữ ID trong tiêu đề là được cho dễ
+      parse: (row) => {
+        const shopId = String(row[1] || "").trim(); // Cột B
+        if (!shopId || shopId === "" || shopId.toLowerCase() === "id cửa hàng")
+          return { skip: true };
+        return {
+          shopId,
+          rawMa: "EXPIRED_ID", // Dummy so it doesn't skip
+          rawUser: "SYSTEM",
+          rawDate: "01/01/2026",
         };
       },
     },
@@ -263,7 +301,7 @@ const EXCEL_CONFIGS = {
         };
       },
     },
-    "Internet": {
+    Internet: {
       headerRow: 6, // Dòng 7
       requiredMarkers: ["ngày nghiệm thu", "user"],
       parse: (row) => {
@@ -321,15 +359,20 @@ const EXCEL_CONFIGS = {
         // Filter: Cột Z chứa "sme"
         if (!rawUser.toLowerCase().includes("sme")) return { rawUser: "skip" };
 
-        const m2mKeywords = extraConfig?.m2mKeywords || ["m2m", "evnblu", "dbiz10_1", "sd70ts"];
+        const m2mKeywords = extraConfig?.m2mKeywords || [
+          "m2m",
+          "evnblu",
+          "dbiz10_1",
+          "sd70ts",
+        ];
         const lowerMa = rawMa.toLowerCase();
-        
+
         let hasKeyword = false;
         for (const kw of m2mKeywords) {
-           if (lowerMa.includes(kw.toLowerCase())) {
-              hasKeyword = true;
-              break;
-           }
+          if (lowerMa.includes(kw.toLowerCase())) {
+            hasKeyword = true;
+            break;
+          }
         }
 
         if (!hasKeyword) return { rawUser: "skip" };
@@ -384,12 +427,6 @@ const EXCEL_CONFIGS = {
   },
 };
 
-// Add getDb for fetching configurations
-import { getDb } from "../config/db.js";
-import sql from "mssql/msnodesqlv8.js";
-import fs from "fs";
-import path from "path";
-
 /**
  * MAIN EXPORTED FUNCTIONS
  */
@@ -410,7 +447,9 @@ export async function processProductImportExcel(buffer, source = "dealer") {
     .map((row) => config.dataMapping(row, source))
     .filter((p) => p !== null);
 
-  console.log(`[Import] Found ${items.length} valid product items from ${rows.length} rows`);
+  console.log(
+    `[Import] Found ${items.length} valid product items from ${rows.length} rows`,
+  );
 
   return {
     data: items,
@@ -425,6 +464,7 @@ export async function processSalesImportExcel(
   buffer,
   groupType,
   source = "dealer",
+  extraOptions = {},
 ) {
   const sheets = readExcelAllSheets(buffer);
 
@@ -440,16 +480,23 @@ export async function processSalesImportExcel(
   // Fetch extra configurations from JSON file
   let m2mKeywords = ["m2m", "evnblu", "dbiz10_1", "sd70ts"];
   try {
-     const configPath = path.resolve(process.cwd(), 'src/config/m2m_keywords.json');
-     if (fs.existsSync(configPath)) {
-        const data = fs.readFileSync(configPath, 'utf8');
-        m2mKeywords = JSON.parse(data);
-     }
-  } catch(e) {
-     console.log("Could not fetch m2m_keywords from file, using defaults", e.message);
+    const configPath = path.resolve(
+      process.cwd(),
+      "src/config/m2m_keywords.json",
+    );
+    if (fs.existsSync(configPath)) {
+      const data = fs.readFileSync(configPath, "utf8");
+      m2mKeywords = JSON.parse(data);
+    }
+  } catch (e) {
+    console.log(
+      "Could not fetch m2m_keywords from file, using defaults",
+      e.message,
+    );
   }
 
   const extraConfig = { m2mKeywords };
+  const seenDedupeKeys = new Set();
 
   // Xử lý các nhóm AM có thể dùng chung cấu hình hoặc cấu hình mặc định nếu chưa định nghĩa
   let activeType = groupType === "E-Invoice" ? "HDDT" : groupType;
@@ -492,12 +539,28 @@ export async function processSalesImportExcel(
         skipReasons.wrongMarker++;
         continue;
       }
-      if (parsed.rawUser === "invalid_tinh") {
+      if (
+        parsed.rawUser === "invalid_tinh" ||
+        parsed.rawUser === "invalid_staff_region"
+      ) {
         skipReasons.invalidTinh++;
         continue;
       }
 
-      const { rawDate, rawUser, rawMa, rawMat, amount, price } = parsed;
+      const {
+        rawDate,
+        rawUser,
+        rawMa,
+        rawMat,
+        amount,
+        price,
+        extraData,
+        shopId,
+      } = parsed;
+
+      // Determine final amount for dashboard (Subscriber Count)
+      let finalAmount = amount !== undefined ? amount : 1;
+
       const { ngay, thang, nam } = parseExcelDate(rawDate);
 
       if (!rawMa || rawMa === "") {
@@ -513,8 +576,10 @@ export async function processSalesImportExcel(
         nam: nam,
         nhan_vien: String(rawUser || "Không rõ").trim(),
         product_group: groupType,
-        amount: amount,
-        price: price, // New field for direct product insertion
+        amount: finalAmount,
+        price: price,
+        extra_data: extraData ? JSON.stringify(extraData) : null,
+        shopId: parsed.shopId, // Quan trọng cho file Expired IDs
       });
     }
   }
@@ -581,7 +646,7 @@ function validateHeader(rows, index, markers, label) {
       .trim(),
   );
   const isMatched = markers.every((m) =>
-    header.some((cell) => cell.includes(m)),
+    header.some((cell) => cell.includes(String(m).toLowerCase())),
   );
 
   if (!isMatched) {
@@ -683,16 +748,20 @@ const MARKERS = {
 };
 
 function detectHeaderIndex(rows, markers) {
+  if (!markers || markers.length === 0) return 0; // Fallback to first row
   for (let i = 0; i < Math.min(rows.length, 30); i++) {
-    const rowData = rows[i].map((c) =>
+    const row = rows[i];
+    if (!row || !Array.isArray(row)) continue;
+
+    const rowData = row.map((c) =>
       String(c || "")
         .toLowerCase()
         .trim(),
     );
     const matchCount = rowData.filter((cell) =>
-      markers.some((m) => cell.includes(m)),
+      markers.some((m) => cell && cell.includes(m.toLowerCase())),
     ).length;
-    if (matchCount >= 2) return i;
+    if (matchCount >= 1) return i;
   }
   return -1;
 }

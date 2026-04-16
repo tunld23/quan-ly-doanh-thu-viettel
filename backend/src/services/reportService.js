@@ -1,10 +1,10 @@
 import { getDb } from "../config/db.js";
+import { TENDOO_RULES, getDefaultTendooRule } from "./tendooRules.js";
 
 export const updateSummaryReport = async () => {
   const db = await getDb();
   console.log("Updating summary_report table...");
 
-  // 1. Ensure table exists (without service_count)
   await db.request().query(`
     IF OBJECT_ID('summary_report', 'U') IS NULL
     BEGIN
@@ -20,45 +20,52 @@ export const updateSummaryReport = async () => {
     END
   `);
 
-  // 2. Xóa dữ liệu cũ và nạp dữ liệu mới bằng GROUP BY
-  // Chúng ta sử dụng UNION ALL để gộp dữ liệu từ 2 nguồn: Dữ liệu file (detail) và Dữ liệu điều chỉnh (adjustments)
   await db.request().query(`
     TRUNCATE TABLE summary_report;
     TRUNCATE TABLE staff_service_count;
     
-    -- 1. Populate staff_service_count strictly from detail table (counting staff/records)
     INSERT INTO staff_service_count (tr_year, tr_month, tr_day, nhan_vien, product_group, source_type, service_count)
     SELECT 
-      tr_year, 
-      tr_month, 
-      tr_day,
-      nhan_vien, 
-      product_group, 
-      source_type,
-      COUNT(*) as service_count
+      tr_year, tr_month, tr_day, nhan_vien, product_group, source_type,
+      SUM(ISNULL(amount, 1)) as service_count
     FROM detail
+    WHERE ISNULL(product_group, '') <> 'Tendoo'
     GROUP BY tr_year, tr_month, tr_day, nhan_vien, product_group, source_type;
+  `);
 
-    -- 2. Populate summary_report by merging Revenue (from product + adjustments)
+  const monthsRes = await db.request().query(`
+    SELECT DISTINCT tr_year, tr_month 
+    FROM detail 
+    WHERE product_group = 'Tendoo'
+  `);
+
+  for (const row of monthsRes.recordset) {
+    const year = row.tr_year;
+    const month = String(row.tr_month).padStart(2, "0");
+    const key = `${year}-${month}`;
+
+    const ruleFn = TENDOO_RULES[key] || getDefaultTendooRule;
+    if (ruleFn) {
+      console.log(`Executing Tendoo Rules for ${key}...`);
+      const sqlStr = ruleFn(year, month);
+      await db.request().query(`
+         INSERT INTO staff_service_count (tr_year, tr_month, tr_day, nhan_vien, product_group, source_type, service_count)
+         ${sqlStr}
+       `);
+    }
+  }
+
+  await db.request().query(`
     INSERT INTO summary_report (tr_year, tr_month, tr_day, nhan_vien, product_group, source_type, total_amount)
     SELECT 
-      t.tr_year, 
-      t.tr_month, 
-      t.tr_day,
-      t.nhan_vien, 
-      t.product_group, 
-      t.source_type,
+      t.tr_year, t.tr_month, t.tr_day, t.nhan_vien, t.product_group, t.source_type,
       SUM(t.revenue) as total_amount
     FROM (
-      -- Source A: Revenue from product table
       SELECT 
         tr_year, tr_month, tr_day, nhan_vien, product_group, source_type,
         ISNULL(without_vat, 0) as revenue
       FROM product
-      
       UNION ALL
-      
-      -- Source C: Manual Adjustments (revenue only for summary)
       SELECT 
         tr_year, tr_month, tr_day, nhan_vien, product_group, 
         ISNULL(source_type, 'manual') as source_type,

@@ -8,7 +8,10 @@ const toast = useToast();
 
 const m2mKeywords = ref(["m2m", "evnblu", "dbiz10_1", "sd70ts"]);
 const showM2mDialog = ref(false);
+const showTendooExpiredDialog = ref(false);
 const newKeyword = ref("");
+const expiredFile = ref(null);
+const importingExpired = ref(false);
 
 const fetchSettings = async () => {
   try {
@@ -121,6 +124,23 @@ const handleImport = async () => {
     toast.error(err.response?.data?.error || "Có lỗi xảy ra khi import detail");
   } finally {
     importing.value = false;
+  }
+};
+
+const handleExpiredImport = async () => {
+  if (!expiredFile.value) return;
+  importingExpired.value = true;
+  const formData = new FormData();
+  formData.append("file", expiredFile.value);
+  try {
+    const response = await importService.importTendooExpiredIds(formData);
+    toast.success(response.data.message);
+    showTendooExpiredDialog.value = false;
+    expiredFile.value = null;
+  } catch (err) {
+    toast.error(err.response?.data?.error || "Có lỗi xảy ra khi import danh sách ID");
+  } finally {
+    importingExpired.value = false;
   }
 };
 
@@ -267,18 +287,18 @@ const defaultRule = [
           <select v-model="selectedType" class="input-modern">
             <option value="" disabled>-- Chọn nhóm sản phẩm --</option>
             <option v-for="group in productGroups" :key="group" :value="group">
-              {{
-                group === "Internet" ||
-                group === "Internet"
-                  ? "Internet"
-                  : group
-              }}
+              {{ group }}
             </option>
           </select>
-          <div class="mt-3" v-if="selectedType === 'M2M/IOT'">
-             <button @click="showM2mDialog = true" class="text-xs bg-indigo-100 text-indigo-700 px-3 py-1.5 rounded-lg flex items-center font-bold hover:bg-indigo-200 transition-colors">
-               <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+
+          <div class="mt-3 flex flex-wrap gap-2">
+             <button v-if="selectedType === 'M2M/IOT'" @click="showM2mDialog = true" class="text-xs bg-indigo-100 text-indigo-700 px-3 py-1.5 rounded-lg flex items-center font-bold hover:bg-indigo-200 transition-colors">
+               <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924-1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
                Cấu hình Gói M2M/IOT hợp lệ
+             </button>
+             <button v-if="selectedType === 'Tendoo'" @click="showTendooExpiredDialog = true" class="text-xs bg-orange-100 text-orange-700 px-3 py-1.5 rounded-lg flex items-center font-bold hover:bg-orange-200 transition-colors">
+               <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"></path></svg>
+               Nhập tập ghi nhận hết hạn
              </button>
           </div>
 
@@ -434,6 +454,45 @@ const defaultRule = [
           </button>
           <button @click="saveM2mKeywords" class="px-5 py-2 text-sm font-bold bg-black text-white rounded-xl shadow-md cursor-pointer transition-colors active:scale-95">
             Lưu thay đổi
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tendoo Expired IDs Dialog -->
+    <div v-if="showTendooExpiredDialog" class="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+      <div class="bg-white rounded-2xl w-full max-w-md shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
+        <div class="p-5 border-b border-gray-100 flex items-center justify-between bg-orange-50/50">
+          <h3 class="font-bold text-orange-900 uppercase tracking-widest text-sm flex items-center">
+            <svg class="w-5 h-5 mr-2 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"></path></svg>
+            Tập ghi nhận hết hạn (Tendoo)
+          </h3>
+          <button @click="showTendooExpiredDialog = false" class="text-gray-400 hover:text-gray-800 transition-colors">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+          </button>
+        </div>
+        
+        <div class="p-5">
+          <p class="text-[11px] text-gray-500 mb-6 leading-relaxed italic bg-blue-50 p-3 rounded-lg border border-blue-100">
+            Hệ thống sẽ dùng <b>ID Cửa hàng (Cột B)</b> trong file này để so khớp với dữ liệu Tendoo. Tập mới sẽ thay thế hoàn toàn tập cũ.
+          </p>
+          
+          <FileUpload v-model="expiredFile" label="Chọn file Excel tập ghi nhận" />
+        </div>
+
+        <div class="p-4 bg-gray-50 border-t border-gray-100 flex justify-end gap-3">
+          <button @click="showTendooExpiredDialog = false" class="px-4 py-2 text-sm font-bold text-gray-600 hover:text-gray-900 transition-colors">
+            Hủy
+          </button>
+          <button @click="handleExpiredImport" :disabled="!expiredFile || importingExpired" class="px-5 py-2 text-sm font-bold bg-black text-white rounded-xl shadow-md cursor-pointer transition-colors active:scale-95 flex items-center">
+            <span v-if="importingExpired" class="flex items-center">
+              <svg class="animate-spin -ml-1 mr-2 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+              </svg>
+              Đang xử lý...
+            </span>
+            <span v-else>Import ngay</span>
           </button>
         </div>
       </div>
