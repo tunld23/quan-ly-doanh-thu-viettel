@@ -13,8 +13,7 @@ const formatMoney = (val, isCurrency = true) => {
 
 export const getShortName = (name) => {
   if (name === "all") return "Tất cả";
-  if (name === "Internet" || name === "Internet")
-    return "Internet";
+  if (name === "Internet" || name === "Internet") return "Internet";
   if (name === "Hóa đơn (HDDT)" || name === "Hóa đơn") return "HDDT";
   if (name === "HDDTV") return "HDDT";
   return name;
@@ -22,7 +21,7 @@ export const getShortName = (name) => {
 
 const CATEGORY_COLOR_MAP = {
   CA: "#3b82f6", // Blue 500
-  "Internet": "#22c55e", // Green 500
+  Internet: "#22c55e", // Green 500
   Internet: "#22c55e",
   HDDT: "#ef4444", // Red 500
   "Hóa đơn (HDDT)": "#ef4444",
@@ -36,6 +35,8 @@ const CATEGORY_COLOR_MAP = {
   Easybooks: "#eab308", // Yellow 500
   Tendoo: "#84cc16", // Lime 500
   MySign: "#38bdf8", // Sky 400
+  "Mysign Gia Hạn Mới": "#0ea5e9", // Sky 500
+  "Mysign Gia Hạn Thuê Bao": "#7dd3fc", // Sky 300
 };
 
 const DEFAULT_COLORS = [

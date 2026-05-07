@@ -111,7 +111,6 @@ export function useTargets() {
         listYearFilter.value = form.value.tr_year;
       }
     } catch (err) {
-      console.error("Error fetching years:", err);
       years.value = [new Date().getFullYear()];
     }
   };
@@ -122,7 +121,6 @@ export function useTargets() {
       const res = await targetService.getTargets();
       allTargets.value = res.data;
     } catch (err) {
-      console.error("Error fetching targets:", err);
     } finally {
       loading.value = false;
     }

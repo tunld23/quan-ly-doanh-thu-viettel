@@ -99,6 +99,24 @@ async function initDb(db) {
       );
     END
 
+    IF OBJECT_ID('mysign_vas_prices', 'U') IS NULL
+    BEGIN
+      CREATE TABLE mysign_vas_prices (
+        package_name NVARCHAR(255),
+        price FLOAT,
+        imported_at DATETIME DEFAULT GETDATE()
+      );
+    END
+
+    IF OBJECT_ID('mysign_expired_subscribers', 'U') IS NULL
+    BEGIN
+      CREATE TABLE mysign_expired_subscribers (
+        cccd NVARCHAR(20),
+        expired_time NVARCHAR(20),
+        imported_at DATETIME DEFAULT GETDATE()
+      );
+    END
+
     IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('detail') AND name = 'extra_data')
       ALTER TABLE detail ADD extra_data NVARCHAR(MAX) NULL;
 

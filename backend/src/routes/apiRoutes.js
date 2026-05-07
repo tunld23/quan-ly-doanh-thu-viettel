@@ -1,6 +1,5 @@
 import express from "express";
 import multer from "multer";
-import { syncData } from "../controllers/syncController.js";
 import {
   getDashboardData,
   getStatus,
@@ -8,14 +7,21 @@ import {
   getStaffNames,
   refreshSummary,
   getPerformanceComparisons,
-  getSmeDashboardSummary
+  getSmeDashboardSummary,
 } from "../controllers/dashboardController.js";
 import {
   importProducts,
   getProductGroups,
   getProductYears,
 } from "../controllers/productController.js";
-import { importSales, importTendooExpiredIds } from "../controllers/salesController.js";
+import {
+  importSales,
+  importTendooExpiredIds,
+  importMysignVasPrices,
+  importMysignExpiredSubscribers,
+  importCaUsedMst,
+  importCaNewEnterprise,
+} from "../controllers/salesController.js";
 import {
   getAdjustments,
   createAdjustment,
@@ -27,10 +33,7 @@ import {
   createTarget,
   deleteTarget,
 } from "../controllers/targetController.js";
-import {
-  getSetting,
-  updateSetting,
-} from "../controllers/configController.js";
+import { getSetting, updateSetting } from "../controllers/configController.js";
 import authRoutes from "./authRoutes.js";
 import userRoutes from "./userRoutes.js";
 import adminRoutes from "./adminRoutes.js";
@@ -38,7 +41,6 @@ import adminRoutes from "./adminRoutes.js";
 const router = express.Router();
 const upload = multer({ storage: multer.memoryStorage() });
 
-router.post("/init", syncData);
 router.get("/dashboard", getDashboardData);
 router.get("/dashboard/performance-comparison", getPerformanceComparisons);
 router.post("/dashboard/refresh", refreshSummary);
@@ -63,7 +65,31 @@ router.delete("/targets", deleteTarget);
 // New Product Import Route
 router.post("/products/import", upload.single("file"), importProducts);
 router.post("/sales/import", upload.single("file"), importSales);
-router.post("/sales/import-expired-ids", upload.single("file"), importTendooExpiredIds);
+router.post(
+  "/sales/import-expired-ids",
+  upload.single("file"),
+  importTendooExpiredIds,
+);
+router.post(
+  "/sales/import-mysign-vas",
+  upload.single("file"),
+  importMysignVasPrices,
+);
+router.post(
+  "/sales/import-mysign-expired",
+  upload.single("file"),
+  importMysignExpiredSubscribers,
+);
+router.post(
+  "/sales/import-ca-used-mst",
+  upload.single("file"),
+  importCaUsedMst,
+);
+router.post(
+  "/sales/import-ca-new-ent",
+  upload.single("file"),
+  importCaNewEnterprise,
+);
 
 // Settings
 router.get("/settings/:key", getSetting);

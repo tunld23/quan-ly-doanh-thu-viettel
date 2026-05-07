@@ -28,11 +28,11 @@ export function filterDashboardData(data, filters) {
       const targetMonth = parseInt(month);
       const targetDay = parseInt(day);
 
-      // If we are in "month" mode or both month/day are provided, 
+      // If we are in "month" mode or both month/day are provided,
       // we usually want MTD for THAT month, not Year-To-Date.
       // But if the user didn't specify a month mode, it might be YTD.
       // For SmePerformance, it's definitely Monthly MTD.
-      if (itemMonth !== targetMonth) return false; 
+      if (itemMonth !== targetMonth) return false;
       if (itemDay > targetDay) return false;
     } else if (
       mode === "month" &&

@@ -19,7 +19,9 @@ const {
 <template>
   <div class="target-config-container p-6">
     <div class="max-w-3xl mx-auto">
-      <h1 class="text-2xl font-bold text-gray-800 mb-6 border-b pb-3 uppercase tracking-tight">
+      <h1
+        class="text-3xl lg:text-[40px] font-black text-[#1b254b] tracking-tight leading-none mb-6 drop-shadow-sm"
+      >
         Quản lý Chỉ tiêu
       </h1>
 

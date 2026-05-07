@@ -77,7 +77,6 @@ export function useSmeDashboard() {
       const { subscriberData, comparisonData, dealerData, amData, tendooData } =
         summaryRes.data;
 
-      console.log("Performance Comparisons:", comparisonData);
       comparisons.value = comparisonData || {
         today: 0,
         yesterday: 0,

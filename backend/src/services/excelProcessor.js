@@ -7,6 +7,65 @@ import { getDb } from "../config/db.js";
 /**
  * CONFIGURATION - Centralizing all Excel structure rules
  */
+
+const cleanNum = (val) => {
+  if (val === null || val === undefined || val === "") return 0;
+  if (typeof val === "number") return val;
+
+  let str = String(val).trim();
+  const isNegative =
+    str.includes("-") ||
+    str.includes("–") ||
+    str.includes("—") ||
+    (str.startsWith("(") && str.endsWith(")"));
+
+  if (str.includes(".") && str.includes(",")) {
+    str = str.replace(/\./g, "").replace(/,/g, ".");
+  } else if (str.includes(",")) {
+    const parts = str.split(",");
+    if (parts.length === 2 && parts[1].length === 3) {
+      str = str.replace(/,/g, "");
+    } else {
+      str = str.replace(/,/g, ".");
+    }
+  } else if (str.includes(".") && str.split(".").length > 2) {
+    str = str.replace(/\./g, "");
+  }
+
+  const digits = str.replace(/[^\d.]/g, "");
+  const num = parseFloat(digits) || 0;
+  return isNegative ? -num : num;
+};
+
+const cleanNumOrNull = (val) => {
+  if (val === null || val === undefined || val === "") return null;
+  if (typeof val === "number") return val;
+
+  let str = String(val).trim();
+  const isNegative =
+    str.includes("-") ||
+    str.includes("–") ||
+    str.includes("—") ||
+    (str.startsWith("(") && str.endsWith(")"));
+
+  if (str.includes(".") && str.includes(",")) {
+    str = str.replace(/\./g, "").replace(/,/g, ".");
+  } else if (str.includes(",")) {
+    const parts = str.split(",");
+    if (parts.length === 2 && parts[1].length === 3) {
+      str = str.replace(/,/g, "");
+    } else {
+      str = str.replace(/,/g, ".");
+    }
+  } else if (str.includes(".") && str.split(".").length > 2) {
+    str = str.replace(/\./g, "");
+  }
+
+  const digits = str.replace(/[^\d.]/g, "");
+  const num = parseFloat(digits) || 0;
+  return isNegative ? -num : num;
+};
+
 const EXCEL_CONFIGS = {
   PRODUCT_MASTER: {
     headerRow: 6, // Dòng 7
@@ -32,42 +91,6 @@ const EXCEL_CONFIGS = {
         .trim()
         .toLowerCase();
       if (noteN.includes("thiết bị") || noteN.includes("thiet bi")) return null;
-
-      const cleanNum = (val) => {
-        if (val === null || val === undefined || val === "") return 0;
-        if (typeof val === "number") return val;
-
-        let str = String(val).trim();
-        // Check for minus signs (hyphen, en-dash, em-dash) and accounting format (parentheses)
-        const isNegative =
-          str.includes("-") ||
-          str.includes("–") ||
-          str.includes("—") ||
-          (str.startsWith("(") && str.endsWith(")"));
-
-        // Process VN format: dot for thousands, comma for decimals
-        // Example: 1.234.567,89 -> 1234567.89
-        if (str.includes(".") && str.includes(",")) {
-          str = str.replace(/\./g, "").replace(/,/g, ".");
-        } else if (str.includes(",")) {
-          // If only comma, it could be thousands (US) or decimal (VN).
-          // Heuristic: if exactly 3 digits after comma, it's thousands.
-          const parts = str.split(",");
-          if (parts.length === 2 && parts[1].length === 3) {
-            str = str.replace(/,/g, "");
-          } else {
-            str = str.replace(/,/g, ".");
-          }
-        } else if (str.includes(".") && str.split(".").length > 2) {
-          // "1.234.567" -> thousands
-          str = str.replace(/\./g, "");
-        }
-
-        // Keep only digits and the first decimal dot
-        const digits = str.replace(/[^\d.]/g, "");
-        const num = parseFloat(digits) || 0;
-        return isNegative ? -num : num;
-      };
 
       // Map Hierarchy Code in AP (index 41) to Group Name
       const hCode = String(row[41] || "").trim();
@@ -124,9 +147,17 @@ const EXCEL_CONFIGS = {
       }),
     },
     CA: {
-      headerRow: 10, // Dòng 11 (Mặc định cho Dealer)
+      headerRow: 11, // Dòng 12 (Mặc định cho Dealer)
       requiredMarkers: ["ngày", "nhân viên", "hòa mạng"],
       parse: (row) => {
+        // Cột D (index 3) là đối tượng — bỏ qua "Cá nhân"
+        const doiTuong = String(row[3] || "")
+          .trim()
+          .toLowerCase();
+        if (doiTuong.includes("ca nhan") || doiTuong.includes("cá nhân")) {
+          return { rawUser: "skip" };
+        }
+
         // Cột V (index 21) là loại yêu cầu / dịch vụ
         const type = String(row[21] || "")
           .trim()
@@ -139,27 +170,51 @@ const EXCEL_CONFIGS = {
         }
 
         const split = splitMaMat(row[22]); // Cột W (Mã - Mặt)
+        const cleanNum = (val) => {
+          if (val === null || val === undefined || val === "") return 0;
+          if (typeof val === "number") return val;
+          return parseFloat(String(val).replace(/[^\d.\-]/g, "")) || 0;
+        };
+
         return {
           rawDate: row[16], // Cột Q (Ngày đấu nối)
           rawUser: row[25], // Cột Z (Nhân viên đấu nối)
           rawMa: split.ma,
           rawMat: split.mat,
+          extraData: {
+            mst: String(row[4] || "").trim(), // Cột E
+            thanhTien: cleanNumOrNull(row[24]), // Cột Y
+          },
         };
       },
     },
     HDDT: {
       headerRow: 6, // Dòng 7
-      requiredMarkers: ["ngày đấu nối", "nhân viên đấu nối", "tên hthm"],
-      parse: (row) => ({
-        rawDate: row[30], // Cột AE (Ngày đấu nối)
-        rawUser: row[26], // Cột AA (Nhân viên đấu nối)
-        rawMa: String(row[16] || "") // Cột Q (Mã HTHM)
+      requiredMarkers: ["ngày", "nhân viên", "tên"],
+      parse: (row) => {
+        // Cột D (index 3) là đối tượng — bỏ qua "Cá nhân"
+        const doiTuong = String(row[3] || "")
           .trim()
-          .toLowerCase(),
-        rawMat: String(row[17] || "") // Cột R (Tên HTHM)
-          .trim()
-          .toLowerCase(),
-      }),
+          .toLowerCase();
+        if (doiTuong.includes("ca nhan") || doiTuong.includes("cá nhân")) {
+          return { rawUser: "skip" };
+        }
+
+        return {
+          rawDate: row[30], // Cột AE (Ngày đấu nối)
+          rawUser: row[26], // Cột AA (Nhân viên đấu nối)
+          rawMa: String(row[16] || "") // Cột Q (Mã HTHM)
+            .trim()
+            .toLowerCase(),
+          rawMat: String(row[17] || "") // Cột R (Tên HTHM)
+            .trim()
+            .toLowerCase(),
+          extraData: {
+            mst: String(row[5] || "").trim(), // Cột F (index 5)
+            thanhTien: cleanNumOrNull(row[19]), // Cột T (index 19)
+          },
+        };
+      },
     },
     vBHXH: {
       headerRow: 12, // Dòng 13
@@ -177,6 +232,10 @@ const EXCEL_CONFIGS = {
           rawUser: row[22], // Cột W (Nhân viên đấu nối)
           rawMa: split.ma,
           rawMat: split.mat,
+          extraData: {
+            mst: String(row[3] || "").trim(), // Cột D (index 3)
+            thanhTien: cleanNumOrNull(row[17]), // Cột R (index 17)
+          },
         };
       },
     },
@@ -198,6 +257,78 @@ const EXCEL_CONFIGS = {
           .trim()
           .toLowerCase(), // Cột T
       }),
+    },
+    "Mysign Gia Hạn Mới": {
+      headerRow: 5, // Dòng 6
+      requiredMarkers: [
+        "ngày tạo thuê bao",
+        "nhân viên đấu nối",
+        "gói cước",
+        "tên hiển thị khi đấu nối",
+      ],
+      parse: (row) => {
+        const cleanNum = (val) => {
+          if (val === null || val === undefined || val === "") return 0;
+          if (typeof val === "number") return val;
+          return parseFloat(String(val).replace(/[^\d.\-]/g, "")) || 0;
+        };
+        return {
+          rawDate: row[23], // Cột X
+          rawUser: row[26], // Cột AA
+          rawMa: String(row[17] || "")
+            .trim()
+            .toLowerCase(), // Cột R
+          rawMat: String(row[19] || "")
+            .trim()
+            .toLowerCase(), // Cột T
+          extraData: {
+            packageName: String(row[17] || "").trim(), // Cột R — dùng cho VAS lookup
+            thanhTien: cleanNum(row[33]), // Cột AH — thành tiền
+            soThueBao: String(row[53] || "").trim(), // Cột BB — số thuê bao (để match với cột AV gia hạn)
+            cccd: String(row[36] || "").trim(), // Cột AK — CCCD for expired check
+            nhanVienDauNoi: String(row[39] || "").trim(), // Cột AN — nhân viên đấu nối (filter HNI/H004)
+            maThueBao: String(row[54] || "").trim(), // Cột BC — mã thuê bao (dedup)
+            loaiYeuCau: String(row[27] || "").trim(), // Cột AB — loại yêu cầu (bỏ "Chấm dứt thuê bao SME")
+            soTienGiaoDich: cleanNum(row[52]), // Cột BA — số tiền giao dịch
+          },
+        };
+      },
+    },
+    "Mysign Gia Hạn Thuê Bao": {
+      headerRow: 5, // Dòng 6
+      requiredMarkers: [
+        "ngày tạo thuê bao",
+        "nhân viên đấu nối",
+        "gói cước",
+        "tên hiển thị khi đấu nối",
+      ],
+      parse: (row) => {
+        const cleanNum = (val) => {
+          if (val === null || val === undefined || val === "") return 0;
+          if (typeof val === "number") return val;
+          return parseFloat(String(val).replace(/[^\d.\-]/g, "")) || 0;
+        };
+        return {
+          rawDate: row[23], // Cột X
+          rawUser: row[32], // Cột AG
+          rawMa: String(row[19] || "")
+            .trim()
+            .toLowerCase(), // Cột T
+          rawMat: String(row[21] || "")
+            .trim()
+            .toLowerCase(), // Cột V
+          extraData: {
+            packageName: String(row[51] || "").trim(), // Cột AZ — gói cước
+            thanhTien: 0, // Dùng soTienGiaoDich bên dưới
+            soTienGiaoDich: cleanNum(row[52]), // Cột BA — số tiền giao dịch thực tế
+            soThueBao: String(row[47] || "").trim(), // Cột AV — số thuê bao (để match với cột BB phát triển mới)
+            cccd: String(row[38] || "").trim(), // Cột AM — CCCD cho expired check
+            nhanVienDauNoi: String(row[32] || "").trim(), // Cột AG — nhân viên đấu nối (filter SME_HNI)
+            maThueBao: String(row[48] || "").trim(), // Cột AW — mã thuê bao (dedup)
+            loaiYeuCau: String(row[27] || "").trim(), // Cột AB — loại yêu cầu (bỏ "Chấm dứt thuê bao SME")
+          },
+        };
+      },
     },
     Tendoo: {
       headerRow: 0, // Dòng 1
@@ -263,6 +394,64 @@ const EXCEL_CONFIGS = {
         return {
           shopId,
           rawMa: "EXPIRED_ID", // Dummy so it doesn't skip
+          rawUser: "SYSTEM",
+          rawDate: "01/01/2026",
+        };
+      },
+    },
+    Mysign_Vas_Import: {
+      requiredMarkers: ["gói"],
+      parse: (row) => {
+        const packageName = String(row[0] || "").trim(); // Cột A
+        const price =
+          parseFloat(String(row[1] || "0").replace(/[^\d.–—.-]/g, "")) || 0; // Cột B
+        if (!packageName || packageName.toLowerCase().includes("danh sách gói"))
+          return { skip: true };
+        return {
+          packageName,
+          price,
+          rawMa: "VAS_PRICE",
+          rawUser: "SYSTEM",
+          rawDate: "01/01/2026",
+        };
+      },
+    },
+    Mysign_Expired_Import: {
+      requiredMarkers: ["CCCD"],
+      parse: (row) => {
+        const cccd = String(row[0] || "").trim(); // Cột A
+        const expiredTime = String(row[1] || "").trim(); // Cột B
+        if (!cccd || cccd.toLowerCase().includes("cccd")) return { skip: true };
+        return {
+          cccd,
+          expiredTime,
+          rawMa: "EXPIRED_SUB",
+          rawUser: "SYSTEM",
+          rawDate: "01/01/2026",
+        };
+      },
+    },
+    Ca_Used_Mst_Import: {
+      parse: (row) => {
+        const mst = String(row[0] || "").trim(); // Cột A
+        if (!mst || mst.toLowerCase().includes("mst")) return { skip: true };
+        return {
+          mst,
+          rawMa: "USED_MST",
+          rawUser: "SYSTEM",
+          rawDate: "01/01/2026",
+        };
+      },
+    },
+    Ca_New_Ent_Import: {
+      parse: (row) => {
+        const mst = String(row[0] || "").trim(); // Cột A
+        const name = String(row[1] || "").trim(); // Cột B
+        if (!mst || mst.toLowerCase().includes("mst")) return { skip: true };
+        return {
+          mst,
+          name,
+          rawMa: "NEW_ENT",
           rawUser: "SYSTEM",
           rawDate: "01/01/2026",
         };
@@ -447,10 +636,6 @@ export async function processProductImportExcel(buffer, source = "dealer") {
     .map((row) => config.dataMapping(row, source))
     .filter((p) => p !== null);
 
-  console.log(
-    `[Import] Found ${items.length} valid product items from ${rows.length} rows`,
-  );
-
   return {
     data: items,
     summary: {
@@ -479,20 +664,13 @@ export async function processSalesImportExcel(
 
   // Fetch extra configurations from JSON file
   let m2mKeywords = ["m2m", "evnblu", "dbiz10_1", "sd70ts"];
-  try {
-    const configPath = path.resolve(
-      process.cwd(),
-      "src/config/m2m_keywords.json",
-    );
-    if (fs.existsSync(configPath)) {
-      const data = fs.readFileSync(configPath, "utf8");
-      m2mKeywords = JSON.parse(data);
-    }
-  } catch (e) {
-    console.log(
-      "Could not fetch m2m_keywords from file, using defaults",
-      e.message,
-    );
+  const configPath = path.resolve(
+    process.cwd(),
+    "src/config/m2m_keywords.json",
+  );
+  if (fs.existsSync(configPath)) {
+    const data = fs.readFileSync(configPath, "utf8");
+    m2mKeywords = JSON.parse(data);
   }
 
   const extraConfig = { m2mKeywords };
@@ -569,6 +747,7 @@ export async function processSalesImportExcel(
       }
 
       results.push({
+        ...parsed,
         ma_hang: rawMa,
         mat_hang: rawMat,
         ngay: ngay ? String(ngay).padStart(2, "0") : null,
@@ -642,16 +821,20 @@ function validateHeader(rows, index, markers, label) {
 
   const header = rows[index].map((c) =>
     String(c || "")
+      .normalize("NFC")
       .toLowerCase()
+      .replace(/[\u200B-\u200D\uFEFF]/g, "") // Clean hidden characters
       .trim(),
   );
-  const isMatched = markers.every((m) =>
-    header.some((cell) => cell.includes(String(m).toLowerCase())),
-  );
+
+  const isMatched = markers.every((m) => {
+    const normalizedMarker = String(m).normalize("NFC").toLowerCase();
+    return header.some((cell) => cell.includes(normalizedMarker));
+  });
 
   if (!isMatched) {
     throw new Error(
-      `File không đúng định dạng cho ${label} (Kiểm tra lại dòng tiêu đề tại dòng ${index + 1})`,
+      `File không đúng định dạng cho ${label} (Thiếu các cột bắt đầu bằng: ${markers.join(", ")})`,
     );
   }
 }
@@ -727,97 +910,33 @@ function parseExcelDate(val) {
   return { ngay: null, thang: null, nam: null };
 }
 
-/**
- * LEGACY EXPORTS (Used by other controllers)
- */
-export async function processMasterExcel(buffer) {
-  return processProductImportExcel(buffer);
-}
-
-const MARKERS = {
-  SALES_DATA: [
-    "tháng",
-    "năm",
-    "hình thức hòa mạng",
-    "nhân viên đấu nối",
-    "mã hthm",
-    "tên hthm",
-    "ngày đấu nối",
-    "hthm",
-  ],
-};
-
 function detectHeaderIndex(rows, markers) {
   if (!markers || markers.length === 0) return 0; // Fallback to first row
-  for (let i = 0; i < Math.min(rows.length, 30); i++) {
+  for (let i = 0; i < Math.min(rows.length, 50); i++) {
+    // Scan deeper up to 50 lines
     const row = rows[i];
     if (!row || !Array.isArray(row)) continue;
 
     const rowData = row.map((c) =>
       String(c || "")
+        .normalize("NFC")
         .toLowerCase()
+        .replace(/[\u200B-\u200D\uFEFF]/g, "") // Clean hidden characters
         .trim(),
     );
-    const matchCount = rowData.filter((cell) =>
-      markers.some((m) => cell && cell.includes(m.toLowerCase())),
+
+    // Header is detected if at least 2 markers match (more flexible than requiring all)
+    const matchCount = markers.filter((m) =>
+      rowData.some(
+        (cell) => cell && cell.includes(m.normalize("NFC").toLowerCase()),
+      ),
     ).length;
-    if (matchCount >= 1) return i;
+
+    if (matchCount >= 2) return i;
   }
   return -1;
 }
 
 function normalizeDate(rawDate) {
   return parseExcelDate(rawDate);
-}
-
-export async function processSalesExcel(buffer, filename) {
-  const wb = xlsx.read(buffer, { type: "buffer" });
-  let allRecords = [];
-
-  wb.SheetNames.forEach((sheetName) => {
-    if (sheetName.includes("TONGHOP")) return;
-    const worksheet = wb.Sheets[sheetName];
-    const rows = xlsx.utils.sheet_to_json(worksheet, { header: 1, defval: "" });
-    const headerIdx = detectHeaderIndex(rows, MARKERS.SALES_DATA);
-    if (headerIdx === -1 && wb.SheetNames.length > 1) return;
-
-    const data = xlsx.utils.sheet_to_json(worksheet, {
-      range: headerIdx === -1 ? 0 : headerIdx,
-    });
-
-    data.forEach((s) => {
-      const hthm = s["HTHM"] || "";
-      const vParts = String(hthm).split(/\s*[-–—]\s*/);
-      const hddtMa = String(s["MÃ HTHM"] || "")
-        .trim()
-        .toLowerCase();
-      const dtHthm = s["HÌNH THỨC HÒA MẠNG"] || "";
-      const dtParts = String(dtHthm).split(/\s*[-–—]\s*/);
-
-      const dateStr = s["NGÀY ĐẤU NỐI"] || s["Ngày đấu nối"];
-      let { thang, nam } = normalizeDate(dateStr);
-      if (!thang) {
-        thang = parseInt(s["Tháng"] || s["THÁNG"]);
-        nam = parseInt(s["Năm"] || s["NĂM"]);
-      }
-
-      const ma = (vParts[0] || hddtMa || dtParts[0] || "").trim().toLowerCase();
-      const mat = (vParts[1] || s["TÊN HTHM"] || dtParts[1] || "")
-        .trim()
-        .toLowerCase();
-
-      if (ma) {
-        allRecords.push({
-          ma_hang: ma,
-          mat_hang: mat,
-          thang: String(thang).padStart(2, "0"),
-          nam,
-          nhan_vien:
-            s["NHÂN VIÊN ĐẤU NỐI"] || s["Nhân viên đấu nối"] || "Không rõ",
-        });
-      }
-    });
-  });
-
-  return allRecords;
 }

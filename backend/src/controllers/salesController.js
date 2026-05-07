@@ -98,11 +98,8 @@ export const importSales = async (req, res) => {
         await db
           .request()
           .query(`ALTER TABLE detail DROP CONSTRAINT ${pkName}`);
-        console.log("Dropped PK to allow duplicates");
       }
-    } catch (e) {
-      console.log("No PK to drop or error dropping it (continuing...)");
-    }
+    } catch (e) {}
 
     const transaction = new sql.Transaction(db);
     await transaction.begin();
@@ -199,16 +196,11 @@ export const importSales = async (req, res) => {
       if (transaction) {
         try {
           if (transaction.active) await transaction.rollback();
-        } catch (rollbackErr) {
-          console.error("Rollback Error (ignored):", rollbackErr.message);
-        }
+        } catch (rollbackErr) {}
       }
-      // Log the original error so we can see what actually failed
-      console.error("Original Import Error:", err);
       throw err;
     }
   } catch (err) {
-    console.error("Import Sales Error:", err);
     res.status(err.isValidationError ? 400 : 500).json({
       error: err.isValidationError ? err.message : "Sales import failed",
       details: err.message,
@@ -236,22 +228,20 @@ export const importTendooExpiredIds = async (req, res) => {
     await transaction.begin();
 
     try {
-      // 1. Clear old IDs (Thay thế tập cũ bằng tập mới)
+      // 1. Clear old IDs
       await transaction.request().query("DELETE FROM tendoo_expired_ids");
 
-      // 2. Bulk insert new IDs
-      const table = new sql.Table("tendoo_expired_ids");
-      table.columns.add("id_cua_hang", sql.NVarChar(255), { nullable: false });
-
+      // 2. Insert new IDs one by one (Reliable for small/medium sets)
       const uniqueIds = new Set();
       for (const item of data) {
         if (item.shopId && !uniqueIds.has(item.shopId)) {
           uniqueIds.add(item.shopId);
-          table.rows.add(item.shopId);
+          await transaction
+            .request()
+            .input("id", sql.NVarChar, item.shopId)
+            .query("INSERT INTO tendoo_expired_ids (id_cua_hang) VALUES (@id)");
         }
       }
-
-      await new sql.Request(transaction).bulk(table);
       await transaction.commit();
 
       const dbRecalc = await getDb();
@@ -281,5 +271,239 @@ export const importTendooExpiredIds = async (req, res) => {
     res
       .status(500)
       .json({ error: "Lỗi khi nhập danh sách ID hết hạn: " + err.message });
+  }
+};
+
+export const importMysignVasPrices = async (req, res) => {
+  try {
+    if (!req.file) return res.status(400).json({ error: "No file uploaded" });
+    const buffer = req.file.buffer;
+    const { data } = await processSalesImportExcel(buffer, "Mysign_Vas_Import");
+
+    if (!data || data.length === 0) {
+      return res
+        .status(400)
+        .json({ error: "File không có dữ liệu Giá VAS hợp lệ" });
+    }
+
+    const db = await getDb();
+    const transaction = new sql.Transaction(db);
+    await transaction.begin();
+
+    try {
+      await transaction.request().query("DELETE FROM mysign_vas_prices");
+
+      for (const item of data) {
+        if (item.packageName) {
+          await transaction
+            .request()
+            .input("pkg", sql.NVarChar, item.packageName)
+            .input("prc", sql.Float, item.price)
+            .query(
+              "INSERT INTO mysign_vas_prices (package_name, price) VALUES (@pkg, @prc)",
+            );
+        }
+      }
+
+      await transaction.commit();
+
+      await logActivity(
+        req.user,
+        "IMPORT_MYSIGN_VAS",
+        "mysign_vas_prices",
+        `Imported ${data.length} VAS prices`,
+      );
+      res.json({
+        message: `Đã nhập thành công ${data.length} gói VAS.`,
+      });
+    } catch (e) {
+      if (transaction.active) await transaction.rollback();
+      throw e;
+    }
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Lỗi khi nhập giá VAS: " + err.message });
+  }
+};
+
+export const importMysignExpiredSubscribers = async (req, res) => {
+  try {
+    if (!req.file) return res.status(400).json({ error: "No file uploaded" });
+    const buffer = req.file.buffer;
+    const { data } = await processSalesImportExcel(
+      buffer,
+      "Mysign_Expired_Import",
+    );
+
+    if (!data || data.length === 0) {
+      return res
+        .status(400)
+        .json({ error: "File không có dữ liệu TB hết hạn hợp lệ" });
+    }
+
+    const db = await getDb();
+    const transaction = new sql.Transaction(db);
+    await transaction.begin();
+
+    try {
+      await transaction
+        .request()
+        .query("DELETE FROM mysign_expired_subscribers");
+
+      for (const item of data) {
+        if (item.cccd) {
+          await transaction
+            .request()
+            .input("cccd", sql.NVarChar, item.cccd)
+            .input("time", sql.NVarChar, item.expiredTime)
+            .query(
+              "INSERT INTO mysign_expired_subscribers (cccd, expired_time) VALUES (@cccd, @time)",
+            );
+        }
+      }
+
+      await transaction.commit();
+
+      await logActivity(
+        req.user,
+        "IMPORT_MYSIGN_EXPIRED",
+        "mysign_expired_subscribers",
+        `Imported ${data.length} expired subscribers`,
+      );
+      res.json({
+        message: `Đã nhập thành công ${data.length} thuê bao hết hạn.`,
+      });
+    } catch (e) {
+      if (transaction.active) await transaction.rollback();
+      throw e;
+    }
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Lỗi khi nhập TB hết hạn: " + err.message });
+  }
+};
+
+export const importCaUsedMst = async (req, res) => {
+  try {
+    if (!req.file) return res.status(400).json({ error: "No file uploaded" });
+    const buffer = req.file.buffer;
+    const { data } = await processSalesImportExcel(
+      buffer,
+      "Ca_Used_Mst_Import",
+    );
+
+    if (!data || data.length === 0) {
+      return res.status(400).json({ error: "File không có dữ liệu MST" });
+    }
+
+    const db = await getDb();
+    const transaction = new sql.Transaction(db);
+    await transaction.begin();
+
+    try {
+      await transaction.request().query(`
+        IF OBJECT_ID('ca_used_mst', 'U') IS NULL
+          CREATE TABLE ca_used_mst (mst NVARCHAR(100) PRIMARY KEY);
+        DELETE FROM ca_used_mst;
+      `);
+
+      // Bulk Insert
+      const table = new sql.Table("ca_used_mst");
+      table.columns.add("mst", sql.NVarChar(100), {
+        nullable: false,
+        primary: true,
+      });
+
+      const uniqueMst = new Set();
+      for (const item of data) {
+        if (item.mst && !uniqueMst.has(item.mst)) {
+          uniqueMst.add(item.mst);
+          table.rows.add(item.mst);
+        }
+      }
+
+      if (table.rows.length > 0) {
+        const bulkRequest = new sql.Request(transaction);
+        await bulkRequest.bulk(table);
+      }
+
+      await transaction.commit();
+      await logActivity(
+        req.user,
+        "IMPORT_CA_USED_MST",
+        "ca_used_mst",
+        `Imported ${uniqueMst.size} MSTs`,
+      );
+      res.json({
+        message: `Đã nạp thành công ${uniqueMst.size} MST đã sử dụng.`,
+      });
+    } catch (e) {
+      if (transaction.active) await transaction.rollback();
+      throw e;
+    }
+  } catch (err) {
+    res.status(500).json({ error: "Lỗi: " + err.message });
+  }
+};
+
+export const importCaNewEnterprise = async (req, res) => {
+  try {
+    if (!req.file) return res.status(400).json({ error: "No file uploaded" });
+    const buffer = req.file.buffer;
+    const { data } = await processSalesImportExcel(buffer, "Ca_New_Ent_Import");
+
+    if (!data || data.length === 0) {
+      return res
+        .status(400)
+        .json({ error: "File không có dữ liệu Doanh nghiệp" });
+    }
+
+    const db = await getDb();
+    const transaction = new sql.Transaction(db);
+    await transaction.begin();
+
+    try {
+      await transaction.request().query(`
+        IF OBJECT_ID('ca_new_enterprise', 'U') IS NULL
+          CREATE TABLE ca_new_enterprise (mst NVARCHAR(100) PRIMARY KEY, enterprise_name NVARCHAR(500) NULL);
+        DELETE FROM ca_new_enterprise;
+      `);
+
+      const table = new sql.Table("ca_new_enterprise");
+      table.columns.add("mst", sql.NVarChar(100), {
+        nullable: false,
+        primary: true,
+      });
+      table.columns.add("enterprise_name", sql.NVarChar(500), {
+        nullable: true,
+      });
+
+      const uniqueMst = new Set();
+      for (const item of data) {
+        if (item.mst && !uniqueMst.has(item.mst)) {
+          uniqueMst.add(item.mst);
+          table.rows.add(item.mst, item.name || "");
+        }
+      }
+
+      if (table.rows.length > 0) {
+        const bulkRequest = new sql.Request(transaction);
+        await bulkRequest.bulk(table);
+      }
+
+      await transaction.commit();
+      await logActivity(
+        req.user,
+        "IMPORT_CA_NEW_ENT",
+        "ca_new_enterprise",
+        `Imported ${uniqueMst.size} new enterprises`,
+      );
+      res.json({ message: `Đã nạp thành công ${uniqueMst.size} DN MTL.` });
+    } catch (e) {
+      if (transaction.active) await transaction.rollback();
+      throw e;
+    }
+  } catch (err) {
+    res.status(500).json({ error: "Lỗi: " + err.message });
   }
 };

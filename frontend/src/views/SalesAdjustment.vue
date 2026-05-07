@@ -1,9 +1,9 @@
 <script setup>
-import { ref, onMounted } from 'vue';
-import { dashboardService, adjustmentService } from '../services/apiService';
-import AdjustmentForm from '../components/adjustments/AdjustmentForm.vue';
-import AdjustmentHistory from '../components/adjustments/AdjustmentHistory.vue';
-import { useToast } from '../composables/useToast';
+import { ref, onMounted } from "vue";
+import { dashboardService, adjustmentService } from "../services/apiService";
+import AdjustmentForm from "../components/adjustments/AdjustmentForm.vue";
+import AdjustmentHistory from "../components/adjustments/AdjustmentHistory.vue";
+import { useToast } from "../composables/useToast";
 
 const toast = useToast();
 
@@ -18,7 +18,7 @@ const fetchData = async (year) => {
     const [staffRes, groupRes, historyRes] = await Promise.all([
       dashboardService.getStaffNames({ year }),
       dashboardService.getProductGroups(),
-      adjustmentService.getAdjustments()
+      adjustmentService.getAdjustments(),
     ]);
     staffList.value = staffRes.data;
     productGroupList.value = groupRes.data;
@@ -65,19 +65,23 @@ const handleDeleteAdjustment = async (id) => {
 
 <template>
   <div class="max-w-md mx-auto">
-    <h1 class="text-3xl font-bold text-gray-800 mb-8 border-b pb-4 text-center">Điều chỉnh Doanh thu</h1>
+    <h1
+      class="text-3xl lg:text-[40px] font-black text-[#1b254b] tracking-tight leading-none my-4 drop-shadow-sm"
+    >
+      Điều chỉnh Doanh thu
+    </h1>
     <div class="grid grid-cols-1 gap-8">
-      <AdjustmentForm 
+      <AdjustmentForm
         ref="formRef"
-        :staff-list="staffList" 
-        :submitting="submitting" 
-        @submit="handleNewAdjustment" 
+        :staff-list="staffList"
+        :submitting="submitting"
+        @submit="handleNewAdjustment"
         @year-change="onYearChange"
       />
-      <AdjustmentHistory 
+      <AdjustmentHistory
         class="mt-8"
-        :history="adjustmentHistory" 
-        @delete="handleDeleteAdjustment" 
+        :history="adjustmentHistory"
+        @delete="handleDeleteAdjustment"
       />
     </div>
   </div>
